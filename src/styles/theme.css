@@ -1,0 +1,161 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #ffffff;
+  --foreground: #09090b;
+  --card: #ffffff;
+  --card-foreground: #09090b;
+  --popover: #ffffff;
+  --popover-foreground: #09090b;
+  --primary: #006FEE;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #09090b;
+  --muted: #f4f4f5;
+  --muted-foreground: #71717a;
+  --accent: #f4f4f5;
+  --accent-foreground: #09090b;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: transparent;
+  --input-background: #f4f4f5;
+  --switch-background: #d4d4d8;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #006FEE;
+  --radius: 0.75rem;
+
+  /* NextUI theme variables */
+  --nextui-background: #ffffff;
+  --nextui-foreground: #11181c;
+  --nextui-divider: rgba(17, 17, 17, 0.08);
+  --nextui-focus: #006fee;
+  --nextui-content1: #ffffff;
+  --nextui-content2: #f4f4f5;
+  --nextui-content3: #e4e4e7;
+  --nextui-content4: #d4d4d8;
+  --nextui-default: #71717a;
+  --nextui-default-foreground: #ffffff;
+  --nextui-primary: #006FEE;
+  --nextui-primary-foreground: #ffffff;
+  --nextui-secondary: #7828c8;
+  --nextui-secondary-foreground: #ffffff;
+  --nextui-success: #17c964;
+  --nextui-success-foreground: #000000;
+  --nextui-warning: #f5a524;
+  --nextui-warning-foreground: #000000;
+  --nextui-danger: #f31260;
+  --nextui-danger-foreground: #ffffff;
+}
+
+.dark {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --primary: #006FEE;
+  --primary-foreground: #ffffff;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --accent: #27272a;
+  --accent-foreground: #fafafa;
+  --destructive: #ef4444;
+  --destructive-foreground: #fafafa;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.05);
+  --ring: #006FEE;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+
+  /* NextUI dark theme variables */
+  --nextui-background: #000000;
+  --nextui-foreground: #ecedee;
+  --nextui-divider: rgba(255, 255, 255, 0.1);
+  --nextui-focus: #006fee;
+  --nextui-content1: #18181b;
+  --nextui-content2: #27272a;
+  --nextui-content3: #3f3f46;
+  --nextui-content4: #52525b;
+  --nextui-default: #3f3f46;
+  --nextui-default-foreground: #ffffff;
+  --nextui-primary: #006FEE;
+  --nextui-primary-foreground: #ffffff;
+  --nextui-secondary: #9353d3;
+  --nextui-secondary-foreground: #ffffff;
+  --nextui-success: #17c964;
+  --nextui-success-foreground: #000000;
+  --nextui-warning: #f5a524;
+  --nextui-warning-foreground: #000000;
+  --nextui-danger: #f31260;
+  --nextui-danger-foreground: #ffffff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    font-size: var(--font-size);
+    scrollbar-width: thin;
+    scrollbar-color: #d4d4d8 transparent;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: var(--font-weight-medium);
+    line-height: 1.3;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #d4d4d8;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #a1a1aa;
+  }
+}
