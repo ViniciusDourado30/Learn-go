@@ -1,21 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { DashboardLayout } from "./DashboardLayout";
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom"; // Corrigido para react-router-dom
 import {
   PlayCircle, Clock, BookOpen, Award, Search,
   Flame, Trophy, TrendingUp, CheckCircle2, Play,
   ArrowRight, ChevronRight,
 } from "lucide-react";
-import { COURSES, Course } from "../data/courses";
+import type { Course } from "../data/courses"; // Importação exclusiva de tipagem
 import { Avatar, Progress, Button, Skeleton } from "../components/ui/nextui-shim";
-import { motion } from "motion/react";
+import { motion } from "framer-motion"; // Corrigido para framer-motion
 import { StatCard } from "./StatCard";
 
 export const DashboardMyCourses = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"progress" | "completed">("progress");
 
-  const enrolled = COURSES.filter((c) => c.enrolled);
+  // TODO: Buscar cursos matriculados na API e salvar aqui
+  const [enrolled, setEnrolled] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Lógica derivada do estado 'enrolled'
   const inProgress = enrolled.filter((c) => (c.progress ?? 0) < 100);
   const completed = enrolled.filter((c) => c.progress === 100);
   const avgProgress = enrolled.length > 0
@@ -24,10 +28,17 @@ export const DashboardMyCourses = () => {
 
   const spotlightCourse = inProgress.sort((a, b) => (b.progress ?? 0) - (a.progress ?? 0))[0];
   const otherCourses = inProgress.filter(c => c.id !== spotlightCourse?.id);
-  const displayList = activeTab === "progress" ? inProgress : completed;
+  
+  // Calcula o total de horas investidas previnindo erros se duration vier vazio
+  const totalInvestedHours = enrolled.reduce((a, c) => a + (parseFloat(c.duration || "0") || 0), 0).toFixed(0);
 
-  const [loading, setLoading] = useState(true);
-  useEffect(() => { const t = setTimeout(() => setLoading(false), 700); return () => clearTimeout(t); }, []);
+  useEffect(() => {
+    // TODO: Requisição para buscar os cursos do aluno logado
+    // Ex: api.get('/cursos/meus-cursos').then(res => setEnrolled(res.data));
+
+    const t = setTimeout(() => setLoading(false), 700); 
+    return () => clearTimeout(t); 
+  }, []);
 
   if (loading) {
     return (
@@ -82,7 +93,7 @@ export const DashboardMyCourses = () => {
                     {spotlightCourse.title}
                   </h1>
                   <p className="text-[13px] mb-5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                    Próxima: Aula {Math.round((spotlightCourse.progress ?? 0) * spotlightCourse.lessons / 100) + 1} · {spotlightCourse.instructor}
+                    Próxima: Aula {Math.round((spotlightCourse.progress ?? 0) * (spotlightCourse.lessons || 1) / 100) + 1} · {spotlightCourse.instructor}
                   </p>
 
                   {/* Progress */}
@@ -97,7 +108,7 @@ export const DashboardMyCourses = () => {
                       </div>
                     </div>
                     <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                      {Math.round((spotlightCourse.progress ?? 0) * spotlightCourse.lessons / 100)}/{spotlightCourse.lessons} aulas
+                      {Math.round((spotlightCourse.progress ?? 0) * (spotlightCourse.lessons || 1) / 100)}/{spotlightCourse.lessons || 0} aulas
                     </span>
                   </div>
 
@@ -115,10 +126,10 @@ export const DashboardMyCourses = () => {
           {/* ═══ Stats strip ═══ */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 py-6">
             {([
-              { icon: Flame, value: String(inProgress.length), label: "Em andamento", color: "#006FEE", hint: "ativos esta semana", delta: "+1", trend: "up" as const, spark: [1, 2, 2, 3, 3, 4, inProgress.length || 1] },
-              { icon: Trophy, value: String(completed.length), label: "Concluídos", color: "#17c964", hint: "ao longo do ano", delta: `+${Math.max(completed.length - 1, 0)}`, trend: "up" as const, spark: [0, 1, 1, 2, 2, 3, completed.length || 1] },
-              { icon: TrendingUp, value: `${avgProgress}%`, label: "Progresso médio", color: "#f5a524", hint: "média dos cursos", delta: "+8%", trend: "up" as const, spark: [25, 38, 45, 55, 62, 70, avgProgress || 50] },
-              { icon: Clock, value: `${enrolled.reduce((a, c) => a + parseFloat(c.duration), 0).toFixed(0)}h`, label: "Tempo investido", color: "#7828c8", hint: "horas em estudo", delta: "+5h", trend: "up" as const, spark: [4, 8, 14, 22, 30, 40, 52] },
+              { icon: Flame, value: String(inProgress.length), label: "Em andamento", color: "#006FEE", hint: "ativos", delta: "0", trend: "flat" as const, spark: [0, 0, 0, 0, 0] },
+              { icon: Trophy, value: String(completed.length), label: "Concluídos", color: "#17c964", hint: "no total", delta: `0`, trend: "flat" as const, spark: [0, 0, 0, 0, 0] },
+              { icon: TrendingUp, value: `${avgProgress}%`, label: "Progresso médio", color: "#f5a524", hint: "média dos cursos", delta: "0%", trend: "flat" as const, spark: [0, 0, 0, 0, 0] },
+              { icon: Clock, value: `${totalInvestedHours}h`, label: "Tempo investido", color: "#7828c8", hint: "horas em estudo", delta: "0h", trend: "flat" as const, spark: [0, 0, 0, 0, 0] },
             ]).map((s, i) => (
               <StatCard key={s.label} {...s} index={i} />
             ))}

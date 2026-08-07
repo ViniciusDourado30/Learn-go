@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { DashboardLayout } from "./DashboardLayout";
-import { useRole } from "../hooks/useRole";
+import { useAuthStore } from "../store/authStore";
 import {
   Mail, Phone, MapPin, Briefcase, Edit3, Camera, Check, X,
   Globe, Lock, Bell as BellIcon, Trash2, Star, Award, BookOpen, Save,
 } from "lucide-react";
 import { Avatar, Button, Input, Textarea, Switch, Skeleton, Chip } from "../components/ui/nextui-shim";
-import { motion } from "motion/react";
+import { motion } from "framer-motion";
 import { StatCard } from "./StatCard";
 
 interface ProfileData {
@@ -20,15 +20,15 @@ interface ProfileData {
   avatar: string;
 }
 
-const DEFAULT_DATA: ProfileData = {
-  name: "Alex Silva",
-  email: "alex@learngo.com",
-  phone: "+55 11 99999-0000",
-  location: "São Paulo, Brasil",
-  bio: "Apaixonado por aprender e ensinar. Buscando aprimorar meu inglês e cálculo.",
-  occupation: "Estudante de Engenharia",
-  language: "Português (BR)",
-  avatar: "https://images.unsplash.com/photo-1599566150163-29194dcaad36?crop=entropy&cs=tinysrgb&fit=facearea&facepad=2&w=200&h=200",
+const INITIAL_DATA: ProfileData = {
+  name: "",
+  email: "",
+  phone: "",
+  location: "",
+  bio: "",
+  occupation: "",
+  language: "",
+  avatar: "",
 };
 
 const SkeletonProfile = () => (
@@ -44,17 +44,22 @@ const SkeletonProfile = () => (
 );
 
 export const DashboardProfile = () => {
-  const { role } = useRole();
+  const role = useAuthStore((state) => state.role);
+  
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
-  const [data, setData] = useState<ProfileData>(DEFAULT_DATA);
-  const [draft, setDraft] = useState<ProfileData>(DEFAULT_DATA);
+  const [data, setData] = useState<ProfileData>(INITIAL_DATA);
+  const [draft, setDraft] = useState<ProfileData>(INITIAL_DATA);
+  
   const [emailNotif, setEmailNotif] = useState(true);
   const [pushNotif, setPushNotif] = useState(true);
   const [marketingNotif, setMarketingNotif] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    // TODO: Chamar API para buscar os dados do usuário logado e preencher o state 'data'
+    // Exemplo: api.get('/auth/perfil').then(res => setData(res.data));
+    
     const t = setTimeout(() => setLoading(false), 700);
     return () => clearTimeout(t);
   }, []);
@@ -62,6 +67,9 @@ export const DashboardProfile = () => {
   const startEdit = () => { setDraft(data); setEditing(true); };
   const cancelEdit = () => { setEditing(false); setDraft(data); };
   const saveEdit = () => {
+    // TODO: Chamar API (ex: useMutation do TanStack) para enviar 'draft' para o banco
+    // api.patch('/auth/perfil', draft).then(() => { ... })
+    
     setData(draft);
     setEditing(false);
     setSaved(true);
@@ -70,16 +78,17 @@ export const DashboardProfile = () => {
 
   const update = (k: keyof ProfileData, v: string) => setDraft((d) => ({ ...d, [k]: v }));
 
-  const stats: Array<{ icon: any; label: string; value: string; color: string; hint: string; delta: string; trend: "up" | "down" | "flat"; spark: number[] }> = role === "professor"
+  // TODO: Buscar estatísticas reais do backend
+  const stats: Array<{ icon: any; label: string; value: string; color: string; hint: string; delta: string; trend: "up" | "down" | "flat"; spark: number[] }> = role === "PROFESSOR"
     ? [
-        { icon: BookOpen, label: "Cursos publicados", value: "8", color: "#006FEE", hint: "2 em rascunho", delta: "+1", trend: "up", spark: [3, 4, 4, 5, 6, 7, 8] },
-        { icon: Star, label: "Avaliação média", value: "4.9", color: "#d97706", hint: "238 reviews", delta: "+0.2", trend: "up", spark: [4.4, 4.5, 4.6, 4.6, 4.7, 4.8, 4.9] },
-        { icon: Award, label: "Alunos ativos", value: "142", color: "#7c3aed", hint: "este mês", delta: "+12%", trend: "up", spark: [80, 95, 108, 115, 124, 138, 142] },
+        { icon: BookOpen, label: "Cursos publicados", value: "0", color: "#006FEE", hint: "0 em rascunho", delta: "0", trend: "flat", spark: [0,0,0,0,0] },
+        { icon: Star, label: "Avaliação média", value: "0.0", color: "#d97706", hint: "0 reviews", delta: "0", trend: "flat", spark: [0,0,0,0,0] },
+        { icon: Award, label: "Alunos ativos", value: "0", color: "#7c3aed", hint: "este mês", delta: "0%", trend: "flat", spark: [0,0,0,0,0] },
       ]
     : [
-        { icon: BookOpen, label: "Cursos ativos", value: "12", color: "#006FEE", hint: "3 quase concluídos", delta: "+2", trend: "up", spark: [6, 7, 8, 9, 10, 11, 12] },
-        { icon: Award, label: "Sequência atual", value: "12 dias", color: "#16a34a", hint: "recorde: 28 dias", delta: "novo", trend: "up", spark: [3, 5, 7, 8, 9, 11, 12] },
-        { icon: Star, label: "XP acumulado", value: "2.840", color: "#d97706", hint: "Nível 14", delta: "+340", trend: "up", spark: [1800, 2050, 2200, 2400, 2550, 2700, 2840] },
+        { icon: BookOpen, label: "Cursos ativos", value: "0", color: "#006FEE", hint: "0 quase concluídos", delta: "0", trend: "flat", spark: [0,0,0,0,0] },
+        { icon: Award, label: "Sequência atual", value: "0 dias", color: "#16a34a", hint: "recorde: 0 dias", delta: "0", trend: "flat", spark: [0,0,0,0,0] },
+        { icon: Star, label: "XP acumulado", value: "0", color: "#d97706", hint: "Nível 1", delta: "0", trend: "flat", spark: [0,0,0,0,0] },
       ];
 
   return (
@@ -96,7 +105,7 @@ export const DashboardProfile = () => {
               style={{ background: "radial-gradient(circle, rgba(0,111,238,0.18) 0%, transparent 70%)", filter: "blur(60px)" }} />
             <div className="relative p-6 md:p-8 flex flex-col md:flex-row gap-6 md:items-center">
               <div className="relative shrink-0">
-                <img src={data.avatar} alt={data.name}
+                <img src={data.avatar || "https://ui-avatars.com/api/?name=User&background=006FEE&color=fff"} alt={data.name || "User"}
                   className="w-24 h-24 md:w-28 md:h-28 rounded-full object-cover border-4"
                   style={{ borderColor: "rgba(255,255,255,0.1)" }} />
                 <button className="absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center bg-[#006FEE] hover:bg-[#005bcc] transition-colors">
@@ -105,14 +114,16 @@ export const DashboardProfile = () => {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
-                  <Chip size="sm" color={role === "professor" ? "warning" : "primary"} variant="flat" className="text-[10px]">
-                    {role === "professor" ? "Professor Verificado" : "Aluno Premium"}
+                  <Chip size="sm" color={role === "PROFESSOR" ? "warning" : "primary"} variant="flat" className="text-[10px]">
+                    {role === "PROFESSOR" ? "Professor Verificado" : "Aluno Premium"}
                   </Chip>
                 </div>
                 <h1 className="text-[24px] md:text-[28px] mb-1" style={{ color: "white", fontWeight: 800, letterSpacing: "-0.02em" }}>
-                  {data.name}
+                  {data.name || "Seu Nome"}
                 </h1>
-                <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>{data.occupation} · {data.location}</p>
+                <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                  {data.occupation || "Sua Ocupação"} · {data.location || "Sua Localização"}
+                </p>
               </div>
               <div className="flex gap-2 shrink-0">
                 {!editing ? (
@@ -168,11 +179,11 @@ export const DashboardProfile = () => {
               ) : (
                 <>
                   {[
-                    { icon: Mail, label: "E-mail", value: data.email },
-                    { icon: Phone, label: "Telefone", value: data.phone },
-                    { icon: MapPin, label: "Localização", value: data.location },
-                    { icon: Briefcase, label: "Ocupação", value: data.occupation },
-                    { icon: Globe, label: "Idioma", value: data.language },
+                    { icon: Mail, label: "E-mail", value: data.email || "-" },
+                    { icon: Phone, label: "Telefone", value: data.phone || "-" },
+                    { icon: MapPin, label: "Localização", value: data.location || "-" },
+                    { icon: Briefcase, label: "Ocupação", value: data.occupation || "-" },
+                    { icon: Globe, label: "Idioma", value: data.language || "-" },
                   ].map((f) => (
                     <div key={f.label} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "#fafafa" }}>
                       <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0" style={{ border: "1px solid #f4f4f5" }}>
@@ -186,7 +197,7 @@ export const DashboardProfile = () => {
                   ))}
                   <div className="md:col-span-2 p-4 rounded-xl" style={{ background: "#fafafa" }}>
                     <p className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "#a1a1aa", fontWeight: 600 }}>Sobre</p>
-                    <p className="text-[13px] leading-relaxed" style={{ color: "#3f3f46" }}>{data.bio}</p>
+                    <p className="text-[13px] leading-relaxed" style={{ color: "#3f3f46" }}>{data.bio || "Nenhuma descrição adicionada."}</p>
                   </div>
                 </>
               )}
@@ -226,9 +237,10 @@ export const DashboardProfile = () => {
                 </div>
                 <div className="flex-1">
                   <p className="text-[13px]" style={{ color: "#09090b", fontWeight: 600 }}>Alterar senha</p>
-                  <p className="text-[11px]" style={{ color: "#a1a1aa" }}>Última alteração há 3 meses.</p>
+                  <p className="text-[11px]" style={{ color: "#a1a1aa" }}>Atualize suas credenciais de acesso.</p>
                 </div>
               </button>
+              {/* TODO: Ligar a exclusão de conta na API */}
               <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 transition-colors text-left">
                 <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
                   <Trash2 size={14} className="text-red-500" />

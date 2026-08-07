@@ -1,35 +1,63 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router";
-import { FaceMatrix } from "./FaceMatrix";
+import { Link } from "react-router-dom";
 import {
-  CheckCircle2, ScanFace, Globe2, User, ShieldCheck,
-  GraduationCap, Upload, BookOpen, ArrowLeft, ArrowRight, Check, Sparkles,
+  CheckCircle2, Globe2, User, ShieldCheck,
+  GraduationCap, Upload, BookOpen, ArrowLeft, ArrowRight, Check, Sparkles, AlertCircle
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button, Input, Divider, Progress } from "../components/ui/nextui-shim";
+import { useRegisterMutation } from "../hooks/useAuth";
 
-const STEP_META = (profile: "aluno" | "professor") => [
+const STEP_META = (profile: "ALUNO" | "PROFESSOR") => [
   { eyebrow: "Passo 1", title: "Vamos começar", subtitle: "Conte-nos sobre você.", icon: <User size={16} /> },
   { eyebrow: "Passo 2", title: "Localização", subtitle: "De onde você é?", icon: <Globe2 size={16} /> },
   { eyebrow: "Passo 3", title: "Credenciais", subtitle: "Proteja sua conta.", icon: <ShieldCheck size={16} /> },
-  ...(profile === "professor"
+  ...(profile === "PROFESSOR"
     ? [{ eyebrow: "Passo 4", title: "Formação", subtitle: "Valide sua qualificação.", icon: <GraduationCap size={16} /> }]
     : []),
-  { eyebrow: profile === "professor" ? "Passo 5" : "Passo 4", title: "Biometria", subtitle: "Registro facial seguro.", icon: <ScanFace size={16} /> },
 ];
 
 export const Register = () => {
-  const navigate = useNavigate();
-  const [profile, setProfile] = useState<"aluno" | "professor">("aluno");
+  const [profile, setProfile] = useState<"ALUNO" | "PROFESSOR">("ALUNO");
   const [step, setStep] = useState(1);
-  const totalSteps = profile === "professor" ? 5 : 4;
+  
+  // Estado unificado do formulário
+  const [formData, setFormData] = useState({
+    nome: "",
+    sobrenome: "",
+    idade: "",
+    pais: "Brasil",
+    estado: "",
+    cidade: "",
+    email: "",
+    telefone: "",
+    password: "",
+    confirmPassword: "",
+    formacao: "",
+    linkedin: ""
+  });
+
   const steps = STEP_META(profile);
+  const totalSteps = steps.length;
   const currentStep = steps[step - 1];
-  const isFaceStep = step === totalSteps;
+
+  const { mutate: registerUser, isPending, error } = useRegisterMutation();
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const nextStep = () => setStep((s) => Math.min(s + 1, totalSteps));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
-  const handleComplete = () => { localStorage.setItem("userRole", profile); window.dispatchEvent(new Event("roleChange")); navigate("/dashboard"); };
+  
+  const handleComplete = () => {
+    // Formata os dados e envia para a mutation
+    registerUser({
+      ...formData,
+      role: profile,
+      idade: Number(formData.idade)
+    });
+  };
 
   const inputClasses = {
     label: "text-zinc-500",
@@ -37,20 +65,22 @@ export const Register = () => {
     inputWrapper: "border-zinc-200 hover:border-zinc-300 bg-zinc-50/50 data-[focused=true]:border-primary shadow-none",
   };
 
+  const errorMessage = error ? (error as any).response?.data?.message || "Erro ao registrar. Verifique os dados." : "";
+
   const renderStep = () => {
     switch (step) {
       case 1:
         return (
           <motion.div key="s1" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-5">
             <div className="grid grid-cols-2 gap-3">
-              {(["aluno", "professor"] as const).map((type) => (
-                <button key={type} type="button" onClick={() => setProfile(type)}
+              {(["ALUNO", "PROFESSOR"] as const).map((type) => (
+                <button key={type} type="button" onClick={() => { setProfile(type); setStep(1); }}
                   className="relative flex flex-col items-center gap-2.5 p-5 rounded-2xl transition-all outline-none"
                   style={{ border: profile === type ? "2px solid #006FEE" : "1.5px solid #e4e4e7", background: profile === type ? "#eff6ff" : "white" }}>
-                  {type === "aluno" ? <BookOpen size={22} style={{ color: profile === type ? "#006FEE" : "#a1a1aa" }} />
+                  {type === "ALUNO" ? <BookOpen size={22} style={{ color: profile === type ? "#006FEE" : "#a1a1aa" }} />
                     : <GraduationCap size={22} style={{ color: profile === type ? "#006FEE" : "#a1a1aa" }} />}
                   <span className="text-[12px]" style={{ color: profile === type ? "#006FEE" : "#71717a", fontWeight: 600 }}>
-                    {type === "aluno" ? "Quero Aprender" : "Quero Ensinar"}
+                    {type === "ALUNO" ? "Quero Aprender" : "Quero Ensinar"}
                   </span>
                   {profile === type && (
                     <div className="absolute top-2.5 right-2.5 w-4 h-4 rounded-full bg-primary flex items-center justify-center">
@@ -61,10 +91,10 @@ export const Register = () => {
               ))}
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Nome" placeholder="João" variant="bordered" classNames={inputClasses} />
-              <Input label="Sobrenome" placeholder="Silva" variant="bordered" classNames={inputClasses} />
+              <Input label="Nome" value={formData.nome} onValueChange={(v) => handleInputChange("nome", v)} placeholder="João" variant="bordered" classNames={inputClasses} />
+              <Input label="Sobrenome" value={formData.sobrenome} onValueChange={(v) => handleInputChange("sobrenome", v)} placeholder="Silva" variant="bordered" classNames={inputClasses} />
             </div>
-            <Input label="Idade" type="number" placeholder="25" variant="bordered" classNames={inputClasses} />
+            <Input label="Idade" type="number" value={formData.idade} onValueChange={(v) => handleInputChange("idade", v)} placeholder="25" variant="bordered" classNames={inputClasses} />
           </motion.div>
         );
       case 2:
@@ -72,96 +102,69 @@ export const Register = () => {
           <motion.div key="s2" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-4">
             <div>
               <label className="block text-[12px] mb-1.5" style={{ color: "#3f3f46", fontWeight: 500 }}>País</label>
-              <select className="w-full h-10 px-3 rounded-xl text-[13px] outline-none appearance-none"
+              <select 
+                value={formData.pais}
+                onChange={(e) => handleInputChange("pais", e.target.value)}
+                className="w-full h-10 px-3 rounded-xl text-[13px] outline-none appearance-none"
                 style={{ border: "1px solid #e4e4e7", color: "#09090b", background: "#fafafa" }}>
-                {["🇧🇷 Brasil", "🇵🇹 Portugal", "🇺🇸 Estados Unidos", "🇪🇸 Espanha", "🇫🇷 França"].map(c => <option key={c}>{c}</option>)}
+                {["Brasil", "Portugal", "Estados Unidos", "Espanha", "França"].map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Estado" placeholder="São Paulo" variant="bordered" classNames={inputClasses} />
-              <Input label="Cidade" placeholder="São Paulo" variant="bordered" classNames={inputClasses} />
+              <Input label="Estado" value={formData.estado} onValueChange={(v) => handleInputChange("estado", v)} placeholder="São Paulo" variant="bordered" classNames={inputClasses} />
+              <Input label="Cidade" value={formData.cidade} onValueChange={(v) => handleInputChange("cidade", v)} placeholder="São Paulo" variant="bordered" classNames={inputClasses} />
             </div>
           </motion.div>
         );
       case 3:
         return (
           <motion.div key="s3" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-4">
-            <Input label="Email" type="email" placeholder="seu@email.com" variant="bordered" classNames={inputClasses} />
-            <Input label="Telefone" type="tel" placeholder="+55 11 99999-9999" variant="bordered" classNames={inputClasses} />
+            <Input label="Email" type="email" value={formData.email} onValueChange={(v) => handleInputChange("email", v)} placeholder="seu@email.com" variant="bordered" classNames={inputClasses} />
+            <Input label="Telefone" type="tel" value={formData.telefone} onValueChange={(v) => handleInputChange("telefone", v)} placeholder="+55 11 99999-9999" variant="bordered" classNames={inputClasses} />
             <div className="grid grid-cols-2 gap-3">
-              <Input label="Senha" type="password" placeholder="••••••••" variant="bordered" classNames={inputClasses} />
-              <Input label="Confirmar" type="password" placeholder="••••••••" variant="bordered" classNames={inputClasses} />
+              <Input label="Senha" type="password" value={formData.password} onValueChange={(v) => handleInputChange("password", v)} placeholder="••••••••" variant="bordered" classNames={inputClasses} />
+              <Input label="Confirmar" type="password" value={formData.confirmPassword} onValueChange={(v) => handleInputChange("confirmPassword", v)} placeholder="••••••••" variant="bordered" classNames={inputClasses} />
             </div>
           </motion.div>
         );
       case 4:
-        if (profile === "professor") {
-          return (
-            <motion.div key="s4p" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-4">
-              <Input label="Formação" placeholder="Ex: Bacharel em Ciência da Computação" variant="bordered" classNames={inputClasses} />
-              <Input label="LinkedIn (opcional)" type="url" placeholder="https://linkedin.com/in/..." variant="bordered" classNames={inputClasses} />
-              <div className="p-6 rounded-xl border-2 border-dashed border-zinc-200 flex flex-col items-center gap-2 cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-all">
-                <Upload size={20} className="text-zinc-300" />
-                <p className="text-[12px] text-center" style={{ color: "#71717a", fontWeight: 500 }}>
-                  Comprovante de qualificação<br /><span className="text-[11px] text-zinc-400">PDF, JPG ou PNG · máx. 5MB</span>
-                </p>
-              </div>
-            </motion.div>
-          );
-        }
-        return renderFace();
-      case 5:
-        return renderFace();
+        return (
+          <motion.div key="s4p" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-4">
+            <Input label="Formação" value={formData.formacao} onValueChange={(v) => handleInputChange("formacao", v)} placeholder="Ex: Bacharel em Ciência da Computação" variant="bordered" classNames={inputClasses} />
+            <Input label="LinkedIn (opcional)" type="url" value={formData.linkedin} onValueChange={(v) => handleInputChange("linkedin", v)} placeholder="https://linkedin.com/in/..." variant="bordered" classNames={inputClasses} />
+            <div className="p-6 rounded-xl border-2 border-dashed border-zinc-200 flex flex-col items-center gap-2 cursor-pointer hover:border-primary/30 hover:bg-primary/5 transition-all">
+              <Upload size={20} className="text-zinc-300" />
+              <p className="text-[12px] text-center" style={{ color: "#71717a", fontWeight: 500 }}>
+                Comprovante de qualificação<br /><span className="text-[11px] text-zinc-400">PDF, JPG ou PNG · máx. 5MB</span>
+              </p>
+            </div>
+          </motion.div>
+        );
       default: return null;
     }
   };
-
-  const renderFace = () => (
-    <motion.div key="face" initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="flex flex-col items-center text-center space-y-5">
-      <div className="relative">
-        <div className="w-20 h-20 rounded-2xl flex items-center justify-center" style={{ background: "#eff6ff" }}>
-          <ScanFace size={36} style={{ color: "#006FEE" }} />
-        </div>
-      </div>
-      <div>
-        <h3 className="text-[17px] mb-1.5" style={{ color: "#09090b", fontWeight: 700 }}>Cadastro Biométrico</h3>
-        <p className="text-[13px]" style={{ color: "#71717a" }}>Posicione seu rosto na câmera.</p>
-      </div>
-      <div className="w-full p-4 rounded-xl space-y-2" style={{ background: "#fafafa", border: "1px solid #f4f4f5" }}>
-        {["Iluminação adequada", "Rosto centralizado", "Sem óculos escuros"].map((tip, i) => (
-          <div key={i} className="flex items-center gap-2.5">
-            <CheckCircle2 size={12} className="text-green-500 shrink-0" />
-            <span className="text-[12px] text-zinc-600">{tip}</span>
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
 
   return (
     <div className="flex min-h-screen w-full bg-white">
       {/* Left */}
       <div className="hidden lg:flex lg:w-[45%] flex-col relative overflow-hidden"
         style={{ background: "linear-gradient(135deg, #0a0f1e 0%, #0d1a3a 40%, #0a1628 100%)" }}>
-        {!isFaceStep && (
-          <AnimatePresence mode="popLayout">
-            <motion.div key={step} initial={{ opacity: 0, scale: 1.03 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.6 }} className="absolute inset-0"
-              style={{
-                backgroundImage: `url(${[
-                  "https://images.unsplash.com/photo-1771408427146-09be9a1d4535?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80",
-                  "https://images.unsplash.com/photo-1773702962436-20fb43cf2626?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80",
-                  "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80",
-                  "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80",
-                  "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80",
-                ][Math.min(step - 1, 4)]})`,
-                backgroundSize: "cover", backgroundPosition: "center",
-              }}
-            />
-          </AnimatePresence>
-        )}
-        {isFaceStep ? <div className="absolute inset-0"><FaceMatrix /></div>
-          : <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(10,12,20,0.88) 0%, rgba(10,12,20,0.65) 40%, rgba(10,12,20,0.92) 100%)" }} />}
+        <AnimatePresence mode="popLayout">
+          <motion.div key={step} initial={{ opacity: 0, scale: 1.03 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.6 }} className="absolute inset-0"
+            style={{
+              backgroundImage: `url(${[
+                "https://images.unsplash.com/photo-1771408427146-09be9a1d4535?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80",
+                "https://images.unsplash.com/photo-1773702962436-20fb43cf2626?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80",
+                "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80",
+                "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80",
+              ][Math.min(step - 1, 3)]})`,
+              backgroundSize: "cover", backgroundPosition: "center",
+            }}
+          />
+        </AnimatePresence>
+
+        <div className="absolute inset-0" style={{ background: "linear-gradient(to bottom, rgba(10,12,20,0.88) 0%, rgba(10,12,20,0.65) 40%, rgba(10,12,20,0.92) 100%)" }} />
 
         <div className="absolute top-[15%] left-[10%] w-[400px] h-[400px] rounded-full pointer-events-none"
           style={{ background: "radial-gradient(circle, rgba(0,111,238,0.12) 0%, transparent 70%)", filter: "blur(50px)" }} />
@@ -228,9 +231,24 @@ export const Register = () => {
               {step === totalSteps ? "Quase lá!" : "Criar conta"}
             </h1>
             <p className="text-[13px]" style={{ color: "#71717a" }}>
-              {step === totalSteps ? "Finalize com biometria." : "Preencha para continuar."}
+              {step === totalSteps ? "Finalize as informações para registrar." : "Preencha para continuar."}
             </p>
           </div>
+
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -8, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, y: -8, height: 0 }}
+                className="flex items-center gap-2.5 px-4 py-3 rounded-xl mb-4"
+                style={{ background: "#fef2f2", border: "1px solid #fecaca" }}
+              >
+                <AlertCircle size={14} style={{ color: "#ef4444" }} />
+                <p className="text-[13px]" style={{ color: "#dc2626", fontWeight: 500 }}>{errorMessage}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <Progress value={(step / totalSteps) * 100} color="primary" size="sm" className="mb-6" />
 
@@ -247,8 +265,10 @@ export const Register = () => {
               <Button color="primary" onPress={nextStep} endContent={<ArrowRight size={14} />}
                 className="flex-1 h-11 text-[13px]" style={{ fontWeight: 600 }}>Continuar</Button>
             ) : (
-              <Button color="success" onPress={handleComplete} endContent={<CheckCircle2 size={14} />}
-                className="flex-1 h-11 text-[13px] text-white" style={{ fontWeight: 600 }}>Finalizar</Button>
+              <Button color="success" onPress={handleComplete} isLoading={isPending} endContent={!isPending && <CheckCircle2 size={14} />}
+                className="flex-1 h-11 text-[13px] text-white" style={{ fontWeight: 600 }}>
+                  {isPending ? "Registrando..." : "Finalizar Registro"}
+              </Button>
             )}
           </div>
 

@@ -1,10 +1,14 @@
-import { useNavigate } from "react-router";
+import { useNavigate } from "react-router-dom"; // Atualizado para react-router-dom
 import { Compass, ArrowLeft } from "lucide-react";
 import { Button } from "./ui/nextui-shim";
-import { isAuthenticated } from "../hooks/useAuth";
+import { useAuthStore } from "../store/authStore"; // Importando o nosso store real
 
 export const NotFound = () => {
   const navigate = useNavigate();
+  
+  // Puxa o token do Zustand para saber se o usuário está logado
+  const token = useAuthStore((state) => state.token);
+  const isAuth = !!token;
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center px-6"
@@ -33,9 +37,9 @@ export const NotFound = () => {
           className="h-12 px-6 text-[14px]"
           style={{ fontWeight: 600, borderRadius: "12px" }}
           startContent={<ArrowLeft size={16} />}
-          onClick={() => navigate(isAuthenticated() ? "/dashboard" : "/")}
+          onClick={() => navigate(isAuth ? "/dashboard" : "/")}
         >
-          {isAuthenticated() ? "Voltar ao dashboard" : "Voltar ao início"}
+          {isAuth ? "Voltar ao dashboard" : "Voltar ao início"}
         </Button>
       </div>
     </div>

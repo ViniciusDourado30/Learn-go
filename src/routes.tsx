@@ -17,7 +17,6 @@ import { NotFound } from "./components/NotFound";
 import { RequireAuth, RequireRole, RedirectIfAuth } from "./components/RouteGuards";
 
 const routes = createBrowserRouter([
-  // Grupo de Rotas de Autenticação (Públicas)
   {
     path: "/",
     element: <RedirectIfAuth />, 

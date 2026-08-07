@@ -1,12 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router";
-import { COURSES } from "../data/courses";
+import { useParams, useNavigate } from "react-router-dom"; // Corrigido para react-router-dom
 import {
   ChevronLeft, PlayCircle, CheckCircle, Lock, FileText, SkipForward, MoreVertical, Play,
-  MessageSquare, Paperclip, Send, X, ImageIcon, Reply as ReplyIcon, Heart, ThumbsUp, MoreHorizontal,
+  MessageSquare, Paperclip, Send, X, ImageIcon, Reply as ReplyIcon, ThumbsUp,
 } from "lucide-react";
-import { Button, Progress, Avatar, Chip, Tabs, Tab, Skeleton, Textarea } from "../components/ui/nextui-shim";
-import { useRole } from "../hooks/useRole";
+import { Button, Progress, Avatar, Chip, Tabs, Tab, Skeleton } from "../components/ui/nextui-shim";
+import { useAuthStore } from "../store/authStore"; // Atualizado para o Zustand
 
 interface Attachment {
   name: string;
@@ -14,6 +13,7 @@ interface Attachment {
   type: "image" | "file";
   url?: string;
 }
+
 interface Comment {
   id: string;
   author: string;
@@ -26,48 +26,6 @@ interface Comment {
   attachments?: Attachment[];
   replies: Comment[];
 }
-
-const INITIAL_COMMENTS: Comment[] = [
-  {
-    id: "c1",
-    author: "Marcelo",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=facearea&facepad=2&w=80&q=80",
-    text: "Onde posso encontrar mais exemplos sobre esse tema? Tentei aplicar o conceito num projeto e ficou um pouco confuso na parte de implementação.",
-    time: "Há 2 dias",
-    likes: 4,
-    replies: [
-      {
-        id: "c1r1",
-        author: "Sarah Mitchell",
-        avatar: "https://images.unsplash.com/photo-1758685848226-eedca8f6bce7?crop=entropy&cs=tinysrgb&fit=facearea&facepad=2&w=80&q=80",
-        isProf: true,
-        text: "Olá Marcelo! Dá uma olhada na aba 'Materiais' desta aula — adicionei um PDF extra com exercícios resolvidos. Qualquer dúvida adicional, me chame!",
-        time: "Há 1 dia",
-        likes: 8,
-        replies: [
-          {
-            id: "c1r1r1",
-            author: "Marcelo",
-            avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=facearea&facepad=2&w=80&q=80",
-            text: "Perfeito, professora! Já encontrei. Muito obrigado!",
-            time: "Há 22 horas",
-            likes: 2,
-            replies: [],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: "c2",
-    author: "Ana Costa",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=facearea&facepad=2&w=80&q=80",
-    text: "Conteúdo excelente! Consegui aplicar imediatamente no meu trabalho.",
-    time: "Há 5 dias",
-    likes: 12,
-    replies: [],
-  },
-];
 
 const SkeletonCourseView = () => (
   <div className="flex flex-col h-screen w-full bg-white">
@@ -174,51 +132,30 @@ const Composer: React.FC<ComposerProps> = ({ placeholder, onSubmit, onCancel, co
           )}
           <div className="flex items-center justify-between px-2 py-1.5 border-t border-zinc-100">
             <div className="flex items-center gap-1">
-              <input
-                ref={fileInput}
-                type="file"
-                multiple
-                accept="image/*,.pdf,.doc,.docx,.txt"
-                className="hidden"
-                onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
-              />
-              <button
-                onClick={() => fileInput.current?.click()}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors"
-                aria-label="Anexar arquivo"
-              >
+              <input ref={fileInput} type="file" multiple accept="image/*,.pdf,.doc,.docx,.txt" className="hidden"
+                onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }} />
+              <button onClick={() => fileInput.current?.click()} className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors" aria-label="Anexar arquivo">
                 <Paperclip size={13} className="text-zinc-500" />
                 <span className="text-[11px] text-zinc-500" style={{ fontWeight: 500 }}>Anexar</span>
               </button>
-              <button
-                onClick={() => fileInput.current?.click()}
-                className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors"
-                aria-label="Anexar imagem"
-              >
+              <button onClick={() => fileInput.current?.click()} className="flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-zinc-100 transition-colors" aria-label="Anexar imagem">
                 <ImageIcon size={13} className="text-zinc-500" />
                 <span className="text-[11px] text-zinc-500 hidden sm:inline" style={{ fontWeight: 500 }}>Imagem</span>
               </button>
             </div>
             <div className="flex items-center gap-1.5">
               {onCancel && (
-                <button
-                  onClick={onCancel}
-                  className="px-3 py-1 rounded-lg text-[11px] hover:bg-zinc-100 transition-colors"
-                  style={{ color: "#71717a", fontWeight: 600 }}
-                >
+                <button onClick={onCancel} className="px-3 py-1 rounded-lg text-[11px] hover:bg-zinc-100 transition-colors" style={{ color: "#71717a", fontWeight: 600 }}>
                   Cancelar
                 </button>
               )}
-              <button
-                onClick={submit}
-                disabled={!text.trim() && attachments.length === 0}
+              <button onClick={submit} disabled={!text.trim() && attachments.length === 0}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] transition-colors"
                 style={{
                   background: text.trim() || attachments.length > 0 ? "#006FEE" : "#e4e4e7",
                   color: text.trim() || attachments.length > 0 ? "white" : "#a1a1aa",
                   fontWeight: 600,
-                }}
-              >
+                }}>
                 <Send size={11} /> Publicar
               </button>
             </div>
@@ -239,9 +176,7 @@ interface CommentNodeProps {
   userAvatar: string;
 }
 
-const CommentNode: React.FC<CommentNodeProps> = ({
-  c, depth, replyingTo, onReplyToggle, onSubmitReply, onLike, userAvatar,
-}) => {
+const CommentNode: React.FC<CommentNodeProps> = ({ c, depth, replyingTo, onReplyToggle, onSubmitReply, onLike, userAvatar }) => {
   const isRoot = depth === 0;
   const avatarSize = isRoot ? "w-9 h-9" : "w-7 h-7";
 
@@ -249,10 +184,7 @@ const CommentNode: React.FC<CommentNodeProps> = ({
     <div className="flex gap-2.5">
       <Avatar src={c.avatar} className={avatarSize} size="sm" />
       <div className="flex-1 min-w-0">
-        <div
-          className={isRoot ? "" : "rounded-xl px-3 py-2.5"}
-          style={isRoot ? undefined : { background: c.isProf ? "#eff6ff" : "#fafafa" }}
-        >
+        <div className={isRoot ? "" : "rounded-xl px-3 py-2.5"} style={isRoot ? undefined : { background: c.isProf ? "#eff6ff" : "#fafafa" }}>
           <div className="flex items-center gap-2 mb-1">
             <span className={isRoot ? "text-[12px]" : "text-[11px]"} style={{ color: "#09090b", fontWeight: 700 }}>{c.author}</span>
             {c.isProf && <Chip size="sm" color="primary" variant="flat" className="text-[8px] h-4">Prof</Chip>}
@@ -273,11 +205,7 @@ const CommentNode: React.FC<CommentNodeProps> = ({
               {c.likes > 0 ? c.likes : ""} {isRoot ? (c.likes === 1 ? "Curtida" : c.likes > 1 ? "Curtidas" : "Curtir") : "Curtir"}
             </span>
           </button>
-          <button
-            onClick={() => onReplyToggle(c.id)}
-            className="flex items-center gap-1 hover:opacity-70 transition-opacity"
-            style={{ color: "#71717a" }}
-          >
+          <button onClick={() => onReplyToggle(c.id)} className="flex items-center gap-1 hover:opacity-70 transition-opacity" style={{ color: "#71717a" }}>
             <ReplyIcon size={isRoot ? 12 : 11} />
             <span className={isRoot ? "text-[11px]" : "text-[10px]"} style={{ fontWeight: 600 }}>Responder</span>
           </button>
@@ -289,34 +217,13 @@ const CommentNode: React.FC<CommentNodeProps> = ({
         </div>
 
         {(c.replies.length > 0 || replyingTo === c.id) && (
-          <div
-            className={`mt-3 space-y-3 ${isRoot ? "pt-3" : "pt-2"} relative`}
-            style={isRoot ? { borderTop: "1px solid #f4f4f5" } : undefined}
-          >
-            {/* thread line for nested */}
-            {!isRoot && (
-              <div className="absolute left-[-22px] top-0 bottom-2 w-px" style={{ background: "#e4e4e7" }} />
-            )}
+          <div className={`mt-3 space-y-3 ${isRoot ? "pt-3" : "pt-2"} relative`} style={isRoot ? { borderTop: "1px solid #f4f4f5" } : undefined}>
+            {!isRoot && <div className="absolute left-[-22px] top-0 bottom-2 w-px" style={{ background: "#e4e4e7" }} />}
             {c.replies.map((r) => (
-              <CommentNode
-                key={r.id}
-                c={r}
-                depth={depth + 1}
-                replyingTo={replyingTo}
-                onReplyToggle={onReplyToggle}
-                onSubmitReply={onSubmitReply}
-                onLike={onLike}
-                userAvatar={userAvatar}
-              />
+              <CommentNode key={r.id} c={r} depth={depth + 1} replyingTo={replyingTo} onReplyToggle={onReplyToggle} onSubmitReply={onSubmitReply} onLike={onLike} userAvatar={userAvatar} />
             ))}
             {replyingTo === c.id && (
-              <Composer
-                avatar={userAvatar}
-                placeholder={`Responder a ${c.author}...`}
-                compact
-                onSubmit={(t, a) => onSubmitReply(c.id, t, a)}
-                onCancel={() => onReplyToggle(c.id)}
-              />
+              <Composer avatar={userAvatar} placeholder={`Responder a ${c.author}...`} compact onSubmit={(t, a) => onSubmitReply(c.id, t, a)} onCancel={() => onReplyToggle(c.id)} />
             )}
           </div>
         )}
@@ -327,45 +234,53 @@ const CommentNode: React.FC<CommentNodeProps> = ({
 
 // Recursive helpers
 const addReplyToTree = (nodes: Comment[], parentId: string, reply: Comment): Comment[] =>
-  nodes.map((n) =>
-    n.id === parentId
-      ? { ...n, replies: [...n.replies, reply] }
-      : { ...n, replies: addReplyToTree(n.replies, parentId, reply) }
-  );
+  nodes.map((n) => n.id === parentId ? { ...n, replies: [...n.replies, reply] } : { ...n, replies: addReplyToTree(n.replies, parentId, reply) });
 
 const toggleLikeInTree = (nodes: Comment[], id: string): Comment[] =>
-  nodes.map((n) =>
-    n.id === id
-      ? { ...n, liked: !n.liked, likes: n.likes + (n.liked ? -1 : 1) }
-      : { ...n, replies: toggleLikeInTree(n.replies, id) }
-  );
+  nodes.map((n) => n.id === id ? { ...n, liked: !n.liked, likes: n.likes + (n.liked ? -1 : 1) } : { ...n, replies: toggleLikeInTree(n.replies, id) });
 
 export const DashboardCourseView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { role } = useRole();
-  const course = COURSES.find((c) => c.id === Number(id)) || COURSES[0];
+  const role = useAuthStore((state) => state.role);
+  
+  const [course, setCourse] = useState<any>(null); // TODO: Tipar com a interface do backend
+  const [loading, setLoading] = useState(true);
+  
   const [activeTab, setActiveTab] = useState("overview");
   const [activeModule, setActiveModule] = useState<number>(0);
   const [activeLesson, setActiveLesson] = useState<number>(0);
-  const [loading, setLoading] = useState(true);
-  const [comments, setComments] = useState<Comment[]>(INITIAL_COMMENTS);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [replyingTo, setReplyingTo] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
 
-  const userAvatar = "https://images.unsplash.com/photo-1599566150163-29194dcaad36?crop=entropy&cs=tinysrgb&fit=facearea&facepad=2&w=100&h=100";
+  // TODO: Pegar o avatar do usuário logado via Context/Zustand
+  const userAvatar = "https://ui-avatars.com/api/?name=User&background=006FEE&color=fff";
 
   useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 700);
+    // TODO: Chamar a API para buscar os detalhes do curso e as aulas
+    // Ex: api.get(`/cursos/${id}`).then(res => setCourse(res.data));
+    
+    // Timeout para simular o carregamento até a API estar pronta:
+    const t = setTimeout(() => {
+      setCourse({
+        title: "Carregando Curso...",
+        instructor: "Nome do Instrutor",
+        progress: 0,
+        syllabus: [] // Prevenindo undefined
+      });
+      setLoading(false);
+    }, 700);
     return () => clearTimeout(t);
-  }, []);
+  }, [id]);
 
   const addComment = (text: string, attachments: Attachment[]) => {
+    // TODO: Enviar novo comentário para a API
     const c: Comment = {
       id: `c${Date.now()}`,
       author: "Você",
       avatar: userAvatar,
-      isProf: role === "professor",
+      isProf: role === "PROFESSOR",
       text,
       time: formatNow(),
       likes: 0,
@@ -377,11 +292,12 @@ export const DashboardCourseView = () => {
   };
 
   const addReply = (parentId: string, text: string, attachments: Attachment[]) => {
+    // TODO: Enviar resposta para a API
     const r: Comment = {
       id: `r${Date.now()}`,
       author: "Você",
       avatar: userAvatar,
-      isProf: role === "professor",
+      isProf: role === "PROFESSOR",
       text,
       time: formatNow(),
       likes: 0,
@@ -393,6 +309,7 @@ export const DashboardCourseView = () => {
   };
 
   const toggleLike = (id: string) => {
+    // TODO: Enviar like para a API
     setComments((p) => toggleLikeInTree(p, id));
   };
 
@@ -400,13 +317,12 @@ export const DashboardCourseView = () => {
     setReplyingTo((cur) => (cur === id ? null : id));
   };
 
-  if (loading) return <SkeletonCourseView />;
+  if (loading || !course) return <SkeletonCourseView />;
 
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden bg-white">
       {/* Header */}
-      <header className="h-14 flex items-center justify-between px-4 lg:px-6 shrink-0 z-10"
-        style={{ borderBottom: "1px solid #f4f4f5" }}>
+      <header className="h-14 flex items-center justify-between px-4 lg:px-6 shrink-0 z-10" style={{ borderBottom: "1px solid #f4f4f5" }}>
         <div className="flex items-center gap-3">
           <Button isIconOnly variant="light" size="sm" onPress={() => navigate("/dashboard/courses")} className="text-zinc-400" aria-label="Voltar">
             <ChevronLeft size={18} />
@@ -420,8 +336,8 @@ export const DashboardCourseView = () => {
         <div className="flex items-center gap-3">
           <div className="hidden lg:flex items-center gap-2.5">
             <span className="text-[11px] text-zinc-400" style={{ fontWeight: 500 }}>Progresso</span>
-            <Progress value={course.progress || 10} color="primary" size="sm" className="w-20" />
-            <span className="text-[11px]" style={{ color: "#09090b", fontWeight: 700 }}>{course.progress || 10}%</span>
+            <Progress value={course.progress || 0} color="primary" size="sm" className="w-20" />
+            <span className="text-[11px]" style={{ color: "#09090b", fontWeight: 700 }}>{course.progress || 0}%</span>
           </div>
           <Button isIconOnly variant="light" size="sm" className="text-zinc-400" aria-label="Mais opções"><MoreVertical size={16} /></Button>
         </div>
@@ -431,6 +347,7 @@ export const DashboardCourseView = () => {
         {/* Main */}
         <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
           <div className="bg-black w-full aspect-video lg:aspect-[21/9] relative flex justify-center">
+            {/* TODO: Substituir URL pelo course.videoUrl real */}
             <video controls poster={course.thumb} className="w-full h-full object-contain bg-black"
               src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
               controlsList="nodownload" />
@@ -439,9 +356,9 @@ export const DashboardCourseView = () => {
           <div className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3" style={{ borderBottom: "1px solid #f4f4f5" }}>
             <div>
               <h2 className="text-[16px] mb-0.5" style={{ color: "#09090b", fontWeight: 700 }}>
-                {activeLesson + 1}. Introdução ao {course.title.split(":")[0]}
+                {activeLesson + 1}. Introdução ao {course.title?.split(":")[0] || "Módulo"}
               </h2>
-              <p className="text-[12px] text-zinc-400">Módulo {activeModule + 1} · {course.syllabus[activeModule]?.title}</p>
+              <p className="text-[12px] text-zinc-400">Módulo {activeModule + 1} · {course.syllabus[activeModule]?.title || "Carregando..."}</p>
             </div>
             <Button color="primary" size="sm" endContent={<SkipForward size={14} />} className="text-[12px]" style={{ fontWeight: 600 }}>
               Próxima
@@ -453,7 +370,7 @@ export const DashboardCourseView = () => {
               variant="underlined" color="primary" size="sm"
               classNames={{ tab: "text-[13px]", tabList: "border-b border-zinc-100 mb-5" }}>
               <Tab key="overview" title="Visão Geral" />
-              <Tab key="resources" title="Materiais (3)" />
+              <Tab key="resources" title="Materiais" />
               <Tab key="qa" title={`Dúvidas (${comments.length})`} />
             </Tabs>
 
@@ -469,26 +386,18 @@ export const DashboardCourseView = () => {
                   <Avatar src={course.instructorAvatar} className="w-10 h-10" />
                   <div>
                     <p className="text-[11px] text-zinc-400">Professor(a)</p>
-                    <p className="text-[13px]" style={{ color: "#09090b", fontWeight: 600 }}>{course.instructor}</p>
+                    <p className="text-[13px]" style={{ color: "#09090b", fontWeight: 600 }}>{course.instructor || "Carregando..."}</p>
                   </div>
                 </div>
               </div>
             )}
+            
             {activeTab === "resources" && (
-              <div className="grid sm:grid-cols-2 gap-2.5 max-w-3xl">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center gap-3 p-3.5 rounded-xl border border-zinc-100 hover:border-zinc-200 cursor-pointer transition-all">
-                    <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <FileText size={16} className="text-primary" />
-                    </div>
-                    <div>
-                      <p className="text-[12px]" style={{ color: "#09090b", fontWeight: 600 }}>Apostila_Aula{i}.pdf</p>
-                      <p className="text-[10px] text-zinc-400">2.4 MB</p>
-                    </div>
-                  </div>
-                ))}
+              <div className="max-w-3xl">
+                <p className="text-zinc-500 text-sm">Nenhum material anexado a esta aula.</p>
               </div>
             )}
+            
             {activeTab === "qa" && (
               <div className="max-w-3xl space-y-5">
                 {/* Composer toggle */}
@@ -550,48 +459,52 @@ export const DashboardCourseView = () => {
             <h3 className="text-[13px]" style={{ color: "#09090b", fontWeight: 700 }}>Conteúdo</h3>
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {course.syllabus.map((mod, modIdx) => {
-              const isModActive = activeModule === modIdx;
-              return (
-                <div key={modIdx} className="rounded-xl border border-zinc-100 overflow-hidden">
-                  <button onClick={() => setActiveModule(isModActive ? -1 : modIdx)}
-                    className={`w-full flex items-center justify-between p-3.5 text-left transition-colors ${isModActive ? "bg-zinc-50" : "hover:bg-zinc-50"}`}>
-                    <div className="flex-1 min-w-0 pr-3">
-                      <p className="text-[9px] uppercase tracking-wider text-zinc-400 mb-0.5" style={{ fontWeight: 700 }}>Módulo {modIdx + 1}</p>
-                      <h4 className={`text-[12px] line-clamp-1 ${isModActive ? "text-primary" : "text-zinc-800"}`} style={{ fontWeight: 600 }}>{mod.title}</h4>
-                    </div>
-                    <span className="text-[10px] text-zinc-400 shrink-0">{mod.lessons}</span>
-                  </button>
-                  {isModActive && (
-                    <div className="pb-1">
-                      {Array.from({ length: mod.lessons }).map((_, lessIdx) => {
-                        const isCurrent = activeLesson === lessIdx;
-                        const isCompleted = lessIdx < 2;
-                        return (
-                          <button key={lessIdx} onClick={() => setActiveLesson(lessIdx)}
-                            className={`w-full flex items-start gap-2.5 py-2 px-3.5 text-left hover:bg-zinc-50 transition-colors ${isCurrent ? "bg-primary/5" : ""}`}>
-                            <div className="shrink-0 mt-0.5">
-                              {isCompleted ? <CheckCircle size={14} className="text-green-500" />
-                                : isCurrent ? <div className="w-3.5 h-3.5 rounded-full border-[3px] border-primary" />
-                                : <div className="w-3.5 h-3.5 rounded-full border-2 border-zinc-300" />}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-[12px] line-clamp-1 ${isCurrent ? "text-primary font-semibold" : "text-zinc-600"}`}>
-                                {lessIdx + 1}. Introdução
-                              </p>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <PlayCircle size={9} className="text-zinc-400" />
-                                <span className="text-[9px] text-zinc-400">12:45</span>
+            {(course.syllabus || []).length === 0 ? (
+               <div className="p-4 text-center text-sm text-zinc-500">Nenhum módulo encontrado.</div>
+            ) : (
+              (course.syllabus || []).map((mod: any, modIdx: number) => {
+                const isModActive = activeModule === modIdx;
+                return (
+                  <div key={modIdx} className="rounded-xl border border-zinc-100 overflow-hidden">
+                    <button onClick={() => setActiveModule(isModActive ? -1 : modIdx)}
+                      className={`w-full flex items-center justify-between p-3.5 text-left transition-colors ${isModActive ? "bg-zinc-50" : "hover:bg-zinc-50"}`}>
+                      <div className="flex-1 min-w-0 pr-3">
+                        <p className="text-[9px] uppercase tracking-wider text-zinc-400 mb-0.5" style={{ fontWeight: 700 }}>Módulo {modIdx + 1}</p>
+                        <h4 className={`text-[12px] line-clamp-1 ${isModActive ? "text-primary" : "text-zinc-800"}`} style={{ fontWeight: 600 }}>{mod.title}</h4>
+                      </div>
+                      <span className="text-[10px] text-zinc-400 shrink-0">{mod.lessons || 0}</span>
+                    </button>
+                    {isModActive && (
+                      <div className="pb-1">
+                        {Array.from({ length: mod.lessons || 0 }).map((_, lessIdx) => {
+                          const isCurrent = activeLesson === lessIdx;
+                          const isCompleted = lessIdx < 2;
+                          return (
+                            <button key={lessIdx} onClick={() => setActiveLesson(lessIdx)}
+                              className={`w-full flex items-start gap-2.5 py-2 px-3.5 text-left hover:bg-zinc-50 transition-colors ${isCurrent ? "bg-primary/5" : ""}`}>
+                              <div className="shrink-0 mt-0.5">
+                                {isCompleted ? <CheckCircle size={14} className="text-green-500" />
+                                  : isCurrent ? <div className="w-3.5 h-3.5 rounded-full border-[3px] border-primary" />
+                                  : <div className="w-3.5 h-3.5 rounded-full border-2 border-zinc-300" />}
                               </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-[12px] line-clamp-1 ${isCurrent ? "text-primary font-semibold" : "text-zinc-600"}`}>
+                                  {lessIdx + 1}. Introdução
+                                </p>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <PlayCircle size={9} className="text-zinc-400" />
+                                  <span className="text-[9px] text-zinc-400">12:45</span>
+                                </div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>
