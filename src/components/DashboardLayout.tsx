@@ -7,6 +7,7 @@ import {
   HelpCircle, User as UserIcon,
 } from "lucide-react";
 import { useAuthStore } from "../store/authStore";
+import { usePerfil, getImageUrl, useNotificacoes, useMarcarNotificacaoLida, useMarcarTodasLidas, useRemoverNotificacao } from "../hooks/useDashboard";
 import { Avatar, Badge, Button } from "../components/ui/nextui-shim";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -31,13 +32,7 @@ const getNavItems = (role: string | null): NavItem[] => [
     : []),
 ];
 
-const mockNotifications = [
-  { id: "1", type: "class" as const, title: "Aula confirmada", desc: "Sua aula com Sarah Jenkins foi agendada para amanhã às 14:00.", time: "Há 5 min", read: false, icon: Calendar, iconBg: "#eff6ff", iconColor: "#006FEE" },
-  { id: "2", type: "message" as const, title: "Nova mensagem", desc: 'Carlos Mendes: "Olá! Vi que você se inscreveu no meu curso..."', time: "Há 20 min", read: false, icon: MessageSquare, iconBg: "#f3e8ff", iconColor: "#7c3aed" },
-  { id: "3", type: "review" as const, title: "Nova avaliação", desc: "Um aluno deixou 5 estrelas na sua aula de conversação.", time: "Há 1 hora", read: false, icon: Star, iconBg: "#fef9c3", iconColor: "#d97706" },
-  { id: "4", type: "live" as const, title: "Aula ao vivo em 30min", desc: "Conversação em Grupo - Nível Intermediário começa em breve.", time: "Há 2 horas", read: true, icon: Video, iconBg: "#fce4ec", iconColor: "#e11d48" },
-  { id: "5", type: "class" as const, title: "Lembrete de aula", desc: "Você tem uma aula de Cálculo com David Kim amanhã às 18:00.", time: "Há 3 horas", read: true, icon: Clock, iconBg: "#dcfce7", iconColor: "#16a34a" },
-];
+
 
 export const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
@@ -46,14 +41,31 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
   const role = useAuthStore((state) => state.role);
   const setToken = useAuthStore((state) => state.setToken);
   const setRole = useAuthStore((state) => state.setRole);
+  
+  // Puxa os dados reais do usuário logado para a header
+  const { data: perfilData } = usePerfil();
 
   const navItems = getNavItems(role);
   const [searchOpen, setSearchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const { data: notificacoesData } = useNotificacoes();
+  const { mutate: marcarLida } = useMarcarNotificacaoLida();
+  const { mutate: marcarTodasLidasApi } = useMarcarTodasLidas();
+  const { mutate: removerNotif } = useRemoverNotificacao();
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const notifications = (notificacoesData || []).map((n: any) => ({
+    id: n.id,
+    type: n.tipo,
+    title: n.titulo,
+    desc: n.descricao,
+    time: new Date(n.criado_em).toLocaleString('pt-BR', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }),
+    read: n.lida,
+    icon: n.tipo === 'class' ? Calendar : n.tipo === 'review' ? Star : n.tipo === 'live' ? Video : MessageSquare,
+    iconBg: n.tipo === 'class' ? '#eff6ff' : n.tipo === 'review' ? '#fef9c3' : n.tipo === 'live' ? '#fce4ec' : '#f3e8ff',
+    iconColor: n.tipo === 'class' ? '#006FEE' : n.tipo === 'review' ? '#d97706' : n.tipo === 'live' ? '#e11d48' : '#7c3aed',
+  }));
+  const unreadCount = notifications.filter((n: any) => !n.read).length;
 
   const isActive = (path: string) =>
     path === "/dashboard" ? location.pathname === "/dashboard" : location.pathname.startsWith(path);
@@ -64,9 +76,9 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
     navigate("/");
   };
 
-  const markAllRead = () => setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  const markRead = (id: string) => setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-  const removeNotif = (id: string) => setNotifications((prev) => prev.filter((n) => n.id !== id));
+  const markAllRead = () => marcarTodasLidasApi();
+  const markRead = (id: string) => marcarLida(id);
+  const removeNotif = (id: string) => removerNotif(id);
 
   useEffect(() => {
     if (!profileOpen && !notifOpen) return;
@@ -78,6 +90,8 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [profileOpen, notifOpen]);
+
+  const userPhoto = getImageUrl(perfilData?.user?.foto_url || perfilData?.profile?.foto_url) || `https://ui-avatars.com/api/?name=${perfilData?.user?.nome || 'User'}&background=006FEE&color=fff`;
 
   return (
     <div className="flex flex-col h-screen w-full overflow-hidden bg-white">
@@ -171,7 +185,7 @@ export const DashboardLayout = ({ children }: { children: React.ReactNode }) => 
 
           <div className="relative" data-profile-menu>
             <button onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }} className="flex items-center gap-2.5 py-1.5 px-2 rounded-full transition-colors hover:bg-zinc-50">
-              <Avatar src="https://images.unsplash.com/photo-1599566150163-29194dcaad36?crop=entropy&cs=tinysrgb&fit=facearea&facepad=2&w=100&h=100" className="w-8 h-8" isBordered color="primary" size="sm" />
+              <Avatar src={userPhoto} className="w-8 h-8" isBordered color="primary" size="sm" />
               <div className="hidden md:block text-left">
                 <p className="text-[12px]" style={{ color: "#09090b", fontWeight: 600 }}>Minha Conta</p>
                 <p className="text-[10px]" style={{ color: "#a1a1aa" }}>{role === "ALUNO" ? "Aluno Premium" : "Prof. Verificado"}</p>

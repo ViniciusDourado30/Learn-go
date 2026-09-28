@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { DashboardLayout } from "./DashboardLayout";
 import { useAuthStore } from "../store/authStore";
-import { usePerfil, useUpdatePerfil, useUpload } from "../hooks/useDashboard";
+import { usePerfil, useUpdatePerfil, useUpload, getImageUrl } from "../hooks/useDashboard";
 import { Mail, Phone, MapPin, Briefcase, Edit3, Camera, Check, X, Globe, Lock, Bell as BellIcon, Trash2, Star, Award, BookOpen, Save } from "lucide-react";
 import { Avatar, Button, Input, Textarea, Switch, Skeleton, Chip } from "../components/ui/nextui-shim";
 import { motion } from "framer-motion";
 import { StatCard } from "./StatCard";
 import { Country, State, City } from "country-state-city";
+import { PasswordResetModal, DeleteAccountModal } from "./AccountModals";
 
 const SkeletonProfile = () => (
   <div className="max-w-[1000px] mx-auto px-5 md:px-8 py-8 space-y-6">
@@ -30,12 +31,13 @@ export const DashboardProfile = () => {
   const [data, setData] = useState<any>({});
   const [draft, setDraft] = useState<any>({});
   const [saved, setSaved] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   
   const [emailNotif, setEmailNotif] = useState(true);
   const [pushNotif, setPushNotif] = useState(true);
   const [marketingNotif, setMarketingNotif] = useState(false);
 
-  // Lists for dropdowns
   const countries = Country.getAllCountries();
   const [states, setStates] = useState<any[]>([]);
   const [cities, setCities] = useState<any[]>([]);
@@ -45,7 +47,6 @@ export const DashboardProfile = () => {
       const p = { ...apiData.user, ...apiData.profile };
       p.name = `${p.nome} ${p.sobrenome}`;
       
-      // Converte o nome do banco para ISO code para o Edit mode funcionar
       const c = countries.find(x => x.name === p.pais);
       if (c) { p.paisCode = c.isoCode; }
       
@@ -78,11 +79,17 @@ export const DashboardProfile = () => {
     const cName = Country.getCountryByCode(draft.paisCode)?.name || "";
     const sName = State.getStateByCodeAndCountry(draft.estadoCode, draft.paisCode)?.name || "";
     
-    const dto = {
+    const dto: any = {
       nome: nome, sobrenome: sobrenomeParts.join(" "), telefone: draft.telefone, 
       ocupacao: draft.ocupacao, idioma: draft.idioma, sobre: draft.sobre,
       pais: cName, estado: sName, cidade: draft.cidade,
     };
+
+    // Salva o preço médio se for professor
+    if (role === "PROFESSOR" && draft.preco_medio) {
+      dto.preco_medio = Number(draft.preco_medio);
+    }
+
     salvarPerfil(dto, {
       onSuccess: () => { setEditing(false); setSaved(true); setTimeout(() => setSaved(false), 2200); }
     });
@@ -107,7 +114,7 @@ export const DashboardProfile = () => {
           <div className="absolute top-0 right-0 w-[360px] h-[360px] rounded-full" style={{ background: "radial-gradient(circle, rgba(0,111,238,0.18) 0%, transparent 70%)", filter: "blur(60px)" }} />
           <div className="relative p-6 md:p-8 flex flex-col md:flex-row gap-6 md:items-center">
             <div className="relative shrink-0 overflow-hidden rounded-full w-24 h-24 md:w-28 md:h-28 border-4 group" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
-              <img src={data.foto_url || `https://ui-avatars.com/api/?name=${data.nome}&background=006FEE&color=fff`} alt={data.name} className="w-full h-full object-cover" />
+              <img src={getImageUrl(data.foto_url) || `https://ui-avatars.com/api/?name=${data.nome}&background=006FEE&color=fff`} alt={data.name} className="w-full h-full object-cover" />
               <label className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity">
                 <input type="file" className="hidden" onChange={handleFileChange} />
                 <Camera size={24} className="text-white" />
@@ -146,12 +153,23 @@ export const DashboardProfile = () => {
                 <Input label="Ocupação" value={draft.ocupacao || ""} onValueChange={(v) => setDraft((d:any) => ({...d, ocupacao: v}))} />
                 <Input label="Idioma" value={draft.idioma || ""} onValueChange={(v) => setDraft((d:any) => ({...d, idioma: v}))} />
                 
+                {role === "PROFESSOR" && (
+                  <Input label="Preço da Aula (R$)" type="number" value={draft.preco_medio || ""} onValueChange={(v) => setDraft((d:any) => ({...d, preco_medio: v}))} />
+                )}
+                
                 <div>
                   <label className="block text-[12px] mb-1.5 font-medium text-zinc-700">País</label>
-                  <select value={draft.paisCode || ""} onChange={e => setDraft((d:any) => ({...d, paisCode: e.target.value, estadoCode: "", cidade: ""}))} className="w-full h-10 px-3 rounded-xl text-[13px] border border-zinc-200">
-                    <option value="" disabled>Selecione</option>
-                    {countries.map(c => <option key={c.isoCode} value={c.isoCode}>{c.flag} {c.name}</option>)}
-                  </select>
+                  <div className="relative flex items-center">
+                    {draft.paisCode && (
+                      <div className="absolute left-3 pointer-events-none flex items-center">
+                        <img src={`https://flagcdn.com/w20/${draft.paisCode.toLowerCase()}.png`} alt="" className="w-4 h-3 rounded-sm" />
+                      </div>
+                    )}
+                    <select value={draft.paisCode || ""} onChange={e => setDraft((d:any) => ({...d, paisCode: e.target.value, estadoCode: "", cidade: ""}))} className={`w-full h-10 ${draft.paisCode ? "pl-9" : "px-3"} pr-3 rounded-xl text-[13px] border border-zinc-200`}>
+                      <option value="" disabled>Selecione</option>
+                      {countries.map(c => <option key={c.isoCode} value={c.isoCode}>{c.name}</option>)}
+                    </select>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-[12px] mb-1.5 font-medium text-zinc-700">Estado</label>
@@ -186,6 +204,14 @@ export const DashboardProfile = () => {
                     <div className="flex-1 min-w-0"><p className="text-[10px] font-bold uppercase text-zinc-400">{f.label}</p><p className="text-[13px] font-medium">{f.value}</p></div>
                   </div>
                 ))}
+                
+                {role === "PROFESSOR" && (
+                  <div className="flex items-start gap-3 p-3 rounded-xl bg-green-50 border border-green-100">
+                    <div className="w-9 h-9 rounded-lg bg-white border border-green-200 flex items-center justify-center shrink-0"><Award size={14} className="text-green-600" /></div>
+                    <div className="flex-1 min-w-0"><p className="text-[10px] font-bold uppercase text-green-600">Preço por Aula</p><p className="text-[13px] font-bold text-green-700">R$ {data.preco_medio || 0}</p></div>
+                  </div>
+                )}
+
                 <div className="md:col-span-2 p-4 rounded-xl bg-zinc-50 border border-zinc-100">
                   <p className="text-[10px] font-bold uppercase text-zinc-400 mb-2">Sobre</p>
                   <p className="text-[13px] text-zinc-700">{data.sobre || "Nenhuma descrição adicionada."}</p>
@@ -215,16 +241,18 @@ export const DashboardProfile = () => {
         <div className="bg-white rounded-2xl p-5 md:p-6 border border-zinc-100">
           <h2 className="text-[15px] mb-4 font-bold">Segurança e conta</h2>
           <div className="space-y-2">
-            <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-50 transition-colors text-left">
+            <button onClick={() => setPasswordModalOpen(true)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-zinc-50 transition-colors text-left">
               <div className="w-9 h-9 rounded-lg bg-zinc-100 flex items-center justify-center shrink-0"><Lock size={14} className="text-zinc-600" /></div>
               <div className="flex-1"><p className="text-[13px] font-bold">Alterar senha</p><p className="text-[11px] text-zinc-400">Atualize suas credenciais de acesso.</p></div>
             </button>
-            <button className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 transition-colors text-left">
+            <button onClick={() => setDeleteModalOpen(true)} className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-red-50 transition-colors text-left">
               <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center shrink-0"><Trash2 size={14} className="text-red-500" /></div>
               <div className="flex-1"><p className="text-[13px] font-bold text-red-500">Excluir conta</p><p className="text-[11px] text-zinc-400">Esta ação não pode ser desfeita.</p></div>
             </button>
           </div>
         </div>
+        <PasswordResetModal isOpen={passwordModalOpen} onClose={() => setPasswordModalOpen(false)} defaultEmail={data.email || ""} />
+        <DeleteAccountModal isOpen={deleteModalOpen} onClose={() => setDeleteModalOpen(false)} />
       </motion.div>
     </DashboardLayout>
   );

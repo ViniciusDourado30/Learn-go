@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { DashboardLayout } from "./DashboardLayout";
 import { useNavigate } from "react-router-dom";
-import { useMeusCursos } from "../hooks/useDashboard";
+import { useMeusCursos, getImageUrl } from "../hooks/useDashboard";
 import { PlayCircle, Clock, BookOpen, Award, Flame, Trophy, TrendingUp, Play } from "lucide-react";
 import { Button, Skeleton } from "../components/ui/nextui-shim";
 import { motion } from "framer-motion";
@@ -30,10 +30,10 @@ export const DashboardMyCourses = () => {
       <div className="pb-10">
         {spotlightCourse && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative overflow-hidden" style={{ background: "linear-gradient(135deg, #0a0f1e 0%, #0d1a3a 100%)" }}>
-            <div className="absolute inset-0"><img src={spotlightCourse.capa_url || "https://images.unsplash.com/photo-1524178232363"} className="w-full h-full object-cover opacity-15 blur-[40px]" /></div>
+            <div className="absolute inset-0"><img src={getImageUrl(spotlightCourse.capa_url) || "https://images.unsplash.com/photo-1524178232363"} className="w-full h-full object-cover opacity-15 blur-[40px]" /></div>
             <div className="relative z-10 max-w-[1200px] mx-auto px-5 md:px-8 py-8 md:py-12 flex flex-col lg:flex-row gap-8 items-center">
               <div className="w-full lg:w-[380px] shrink-0 rounded-2xl overflow-hidden relative cursor-pointer" onClick={() => navigate(`/dashboard/courses/${spotlightCourse.id}`)}>
-                <img src={spotlightCourse.capa_url || "https://images.unsplash.com/photo-1524178232363"} className="w-full h-[200px] object-cover" />
+                <img src={getImageUrl(spotlightCourse.capa_url) || "https://images.unsplash.com/photo-1524178232363"} className="w-full h-[200px] object-cover" />
                 <div className="absolute inset-0 flex items-center justify-center bg-black/20"><div className="w-14 h-14 rounded-full bg-white/25 backdrop-blur flex items-center justify-center"><Play size={22} fill="white" className="text-white ml-1"/></div></div>
               </div>
               <div className="flex-1 min-w-0">
@@ -60,7 +60,7 @@ export const DashboardMyCourses = () => {
               <div className="flex gap-4 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
                 {otherCourses.map((course:any) => (
                   <div key={course.id} className="shrink-0 w-[320px] bg-white rounded-2xl flex cursor-pointer border border-zinc-100 hover:shadow-lg" onClick={() => navigate(`/dashboard/courses/${course.id}`)}>
-                    <div className="w-[110px] shrink-0 overflow-hidden"><img src={course.capa_url || "https://images.unsplash.com/photo-1524178232363"} className="w-full h-full object-cover" /></div>
+                    <div className="w-[110px] shrink-0 overflow-hidden"><img src={getImageUrl(course.capa_url) || "https://images.unsplash.com/photo-1524178232363"} className="w-full h-full object-cover" /></div>
                     <div className="flex-1 p-3.5 flex flex-col justify-between"><h3 className="text-[13px] font-bold line-clamp-2">{course.titulo}</h3><p className="text-[11px] text-zinc-400">{course.professor?.nome}</p></div>
                   </div>
                 ))}

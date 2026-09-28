@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Eye, EyeOff, GraduationCap, ArrowRight, AlertCircle, Sparkles } from "lucide-react";
 import { Button, Input, Checkbox, Divider } from "../components/ui/nextui-shim";
 import { useLoginMutation } from "../hooks/useAuth"; // Mudado para o hook real
-import { useAuthStore } from "../store/authStore";
+import { PasswordResetModal } from "./AccountModals";
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -12,6 +12,7 @@ export const Login = () => {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
 
   const { mutate: login, isPending, error } = useLoginMutation();
 
@@ -209,10 +210,10 @@ export const Login = () => {
               >
                 Lembrar-me
               </Checkbox>
-              <a href="#" className="text-[13px] transition-colors hover:text-primary/80"
+              <button type="button" onClick={() => setForgotOpen(true)} className="text-[13px] transition-colors hover:text-primary/80"
                 style={{ color: "#006FEE", fontWeight: 500 }}>
                 Esqueceu a senha?
-              </a>
+              </button>
             </div>
 
             <Button
@@ -275,6 +276,7 @@ export const Login = () => {
             </Link>
           </p>
         </motion.div>
+        <PasswordResetModal isOpen={forgotOpen} onClose={() => setForgotOpen(false)} />
       </div>
     </div>
   );

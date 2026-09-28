@@ -4,7 +4,18 @@ import { Link, useNavigate } from "react-router-dom";
 import { Search, Star, Heart, Languages, ChevronRight, ChevronLeft as ChevronLeftIcon, X, Sparkles, ChevronDown, Check, ArrowDownUp, BookOpen, Zap } from "lucide-react";
 import { Skeleton } from "../components/ui/nextui-shim";
 import { motion } from "framer-motion";
-import { useProfessores } from "../hooks/useDashboard";
+import { useProfessores, getImageUrl } from "../hooks/useDashboard";
+import { Country } from "country-state-city";
+
+export const CountryFlag = ({ pais, className = "w-4 h-3 rounded-sm" }: { pais?: string, className?: string }) => {
+  if (!pais) return <span className="text-[12px]">🌍</span>;
+  let country = Country.getAllCountries().find(c => c.name === pais);
+  if (!country) country = Country.getAllCountries().find(c => c.name.toLowerCase() === pais.toLowerCase());
+  if (country?.isoCode) {
+    return <img src={`https://flagcdn.com/w20/${country.isoCode.toLowerCase()}.png`} alt={pais} className={className} />;
+  }
+  return <span className="text-[12px]">🌍</span>;
+};
 
 const TeacherRow = ({ title, teachers, favorites, onToggleFavorite }: { title: string; teachers: any[]; favorites: string[]; onToggleFavorite: (id: string) => void }) => {
   const scrollRef = React.useRef<HTMLDivElement>(null);
@@ -26,7 +37,7 @@ const TeacherRow = ({ title, teachers, favorites, onToggleFavorite }: { title: s
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
                   <div className="relative">
-                    <img src={teacher.foto_url || `https://ui-avatars.com/api/?name=${teacher.nome}`} className="w-14 h-14 rounded-full object-cover" />
+                    <img src={getImageUrl(teacher.foto_url) || `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.nome + ' ' + teacher.sobrenome)}&background=006FEE&color=fff`} className="w-14 h-14 rounded-full object-cover" />
                     <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white rounded-full" />
                   </div>
                   <div><h4 className="text-[14px]" style={{ color: "#09090b", fontWeight: 700 }}>{teacher.nome} {teacher.sobrenome}</h4><p className="text-[11px]" style={{ color: "#71717a" }}>{teacher.ocupacao || "Professor"}</p></div>
@@ -36,7 +47,7 @@ const TeacherRow = ({ title, teachers, favorites, onToggleFavorite }: { title: s
                 </button>
               </div>
               <div className="flex items-center gap-2 mt-3">
-                <Star size={12} className="fill-amber-400 text-amber-400" /><span className="text-[12px]" style={{ color: "#09090b", fontWeight: 700 }}>{teacher.rating || 5.0}</span><span className="text-[10px] text-zinc-400">({teacher.total_reviews || 0})</span><span className="mx-1 text-zinc-200">·</span><span className="text-[10px] text-zinc-500">{teacher.pais || "Brasil"}</span>
+                <Star size={12} className="fill-amber-400 text-amber-400" /><span className="text-[12px]" style={{ color: "#09090b", fontWeight: 700 }}>{teacher.rating || 5.0}</span><span className="text-[10px] text-zinc-400">({teacher.total_reviews || 0})</span><span className="mx-1 text-zinc-200">·</span><span className="flex items-center gap-1.5 text-[10px] text-zinc-500"><CountryFlag pais={teacher.pais} /> {teacher.pais || "Brasil"}</span>
               </div>
               <div className="flex flex-wrap gap-1 mt-3">
                 {(teacher.especialidades?.length ? teacher.especialidades : ["Geral"]).slice(0, 3).map((tag: string) => (
@@ -60,13 +71,15 @@ const FeaturedTeacher = ({ teacher }: { teacher: any }) => (
     <div className="absolute top-0 right-0 w-[400px] h-[400px] rounded-full" style={{ background: "radial-gradient(circle, rgba(0,111,238,0.12) 0%, transparent 70%)", filter: "blur(50px)" }} />
     <div className="relative z-10 flex flex-col md:flex-row items-center gap-8 p-8 md:p-10">
       <div className="relative shrink-0">
-        <img src={teacher.foto_url || `https://ui-avatars.com/api/?name=${teacher.nome}`} className="w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-white/10" />
+        <img src={getImageUrl(teacher.foto_url) || `https://ui-avatars.com/api/?name=${encodeURIComponent(teacher.nome + ' ' + teacher.sobrenome)}&background=006FEE&color=fff`} className="w-28 h-28 md:w-32 md:h-32 rounded-full object-cover border-4 border-white/10" />
         <div className="absolute bottom-2 right-2 w-5 h-5 bg-green-500 border-3 border-[#0d1a3a] rounded-full" />
       </div>
       <div className="flex-1 text-center md:text-left">
         <div className="flex items-center gap-2 justify-center md:justify-start mb-2"><Sparkles size={13} style={{ color: "#fbbf24" }} /><span className="text-[11px] uppercase tracking-[0.15em]" style={{ color: "rgba(251,191,36,0.7)", fontWeight: 600 }}>Professor destaque</span></div>
         <h2 className="text-[28px] md:text-[32px] mb-2" style={{ color: "white", fontWeight: 800, letterSpacing: "-0.02em" }}>{teacher.nome} {teacher.sobrenome}</h2>
-        <p className="text-[14px] mb-4" style={{ color: "rgba(255,255,255,0.4)" }}>{teacher.ocupacao || "Professor"} · {teacher.pais || "Brasil"}</p>
+        <p className="text-[14px] mb-4 flex items-center justify-center gap-2" style={{ color: "rgba(255,255,255,0.4)" }}>
+          {teacher.ocupacao || "Professor"} · <CountryFlag pais={teacher.pais} /> {teacher.pais || "Brasil"}
+        </p>
         <div className="flex items-center gap-4 justify-center md:justify-start mb-6">
           <span className="flex items-center gap-1 text-[13px]" style={{ color: "rgba(255,255,255,0.7)" }}><Star size={13} className="fill-amber-400 text-amber-400" /> {teacher.rating || 5.0}</span>
           <span className="text-[13px]" style={{ color: "rgba(255,255,255,0.4)" }}>{teacher.total_reviews || 0} avaliações</span>
