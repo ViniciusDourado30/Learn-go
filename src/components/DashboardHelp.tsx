@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Input, Textarea, Button, Skeleton, Chip } from "../components/ui/nextui-shim";
 import { motion, AnimatePresence } from "motion/react";
+import { useEnviarContatoSuporte, usePerfil } from "../hooks/useDashboard";
 
 const FAQ_CATEGORIES = [
   { id: "all", label: "Tudo", icon: Sparkles },
@@ -18,8 +19,7 @@ const FAQ_CATEGORIES = [
 
 const FAQS = [
   { cat: "account", q: "Como altero meus dados pessoais?", a: "Acesse o menu de perfil clicando no seu avatar no canto superior direito e selecione 'Editar perfil'. Você pode alterar nome, e-mail, telefone, foto e demais informações." },
-  { cat: "account", q: "Como troco entre o perfil de Aluno e Professor?", a: "Clique no seu avatar no topo da página, e selecione 'Modo: Aluno → Professor' (ou vice-versa). Sua interface será atualizada com os recursos do perfil escolhido." },
-  { cat: "account", q: "Esqueci minha senha. O que fazer?", a: "Na tela de login, clique em 'Esqueci minha senha'. Você receberá um e-mail com um link para criar uma nova senha." },
+  { cat: "account", q: "Esqueci minha senha. O que fazer?", a: "Na tela de login, clique em 'Esqueci minha senha'. Você receberá um e-mail com um link e código para criar uma nova senha com segurança." },
   { cat: "courses", q: "Como me inscrevo em um curso?", a: "Vá em 'Explorar', escolha o curso desejado e clique em 'Comprar agora'. Após o checkout, ele aparecerá em 'Meus Cursos'." },
   { cat: "courses", q: "Posso baixar materiais dos cursos?", a: "Sim, dentro de cada aula há a aba 'Materiais' onde você encontra PDFs, apostilas e recursos extras para download." },
   { cat: "courses", q: "Como faço perguntas durante o curso?", a: "Em qualquer aula, acesse a aba 'Dúvidas'. Lá você pode escrever uma pergunta, anexar imagens ou arquivos, e o professor responderá assim que possível." },
@@ -35,11 +35,20 @@ export const DashboardHelp = () => {
   const [activeCat, setActiveCat] = useState("all");
   const [search, setSearch] = useState("");
   const [openFaq, setOpenFaq] = useState<number | null>(null);
-  const [email, setEmail] = useState("alex@learngo.com");
+  const [email, setEmail] = useState("");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
-  const [sending, setSending] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const { data: perfilData } = usePerfil();
+  const { mutate: enviarSuporte, isPending: sending } = useEnviarContatoSuporte();
+
+  useEffect(() => {
+    if (perfilData?.user?.email) {
+      setEmail(perfilData.user.email);
+    }
+  }, [perfilData]);
 
   useEffect(() => {
     const t = setTimeout(() => setLoading(false), 600);
@@ -55,15 +64,23 @@ export const DashboardHelp = () => {
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg("");
     if (!subject.trim() || !message.trim()) return;
-    setSending(true);
-    setTimeout(() => {
-      setSending(false);
-      setSent(true);
-      setSubject("");
-      setMessage("");
-      setTimeout(() => setSent(false), 3500);
-    }, 900);
+
+    enviarSuporte(
+      { email, subject, message },
+      {
+        onSuccess: () => {
+          setSent(true);
+          setSubject("");
+          setMessage("");
+          setTimeout(() => setSent(false), 4000);
+        },
+        onError: () => {
+          setErrorMsg("Erro ao enviar mensagem. Tente novamente.");
+        }
+      }
+    );
   };
 
   return (
@@ -217,6 +234,8 @@ export const DashboardHelp = () => {
                     <Input label="Assunto" value={subject} onValueChange={setSubject} placeholder="Como podemos ajudar?" />
                     <Textarea label="Mensagem" value={message} onValueChange={setMessage} placeholder="Descreva sua dúvida ou feedback..." minRows={5} />
 
+                    {errorMsg && <p className="text-[12px] text-red-500 font-medium">{errorMsg}</p>}
+
                     <Button
                       type="submit"
                       color="primary"
@@ -225,13 +244,13 @@ export const DashboardHelp = () => {
                       isDisabled={!subject.trim() || !message.trim() || sending}
                       startContent={sending ? null : <Send size={13} />}
                     >
-                      {sending ? "Enviando..." : "Enviar mensagem"}
+                      {sending ? "Enviando para o suporte..." : "Enviar mensagem"}
                     </Button>
 
                     <div className="pt-2 mt-2 flex items-center gap-2" style={{ borderTop: "1px solid #f4f4f5" }}>
                       <Mail size={12} style={{ color: "#a1a1aa" }} />
                       <p className="text-[11px]" style={{ color: "#71717a" }}>
-                        Ou envie para <span style={{ color: "#006FEE", fontWeight: 600 }}>suporte@learngo.com</span>
+                        Ou envie para <span style={{ color: "#006FEE", fontWeight: 600 }}>vinicius.dourado30@outlook.com</span>
                       </p>
                     </div>
                   </form>

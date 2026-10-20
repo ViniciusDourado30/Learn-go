@@ -5,7 +5,7 @@ import {
   ArrowRight, ArrowLeft, AlertTriangle, Trash2, RefreshCw,
 } from "lucide-react";
 import { Button } from "../components/ui/nextui-shim";
-import { useAlterarSenha, useExcluirConta } from "../hooks/useDashboard";
+import { useExcluirConta, useSolicitarCodigoOtp, useVerificarCodigoOtp, useRedefinirSenhaOtp } from "../hooks/useDashboard";
 import { useAuthStore } from "../store/authStore";
 import { useNavigate } from "react-router-dom";
 
@@ -57,6 +57,7 @@ export const PasswordResetModal = ({
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [email, setEmail] = useState(defaultEmail);
   const [code, setCode] = useState(["", "", "", "", "", ""]);
+  const [demoCode, setDemoCode] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -64,21 +65,33 @@ export const PasswordResetModal = ({
   const [loading, setLoading] = useState(false);
   const [resent, setResent] = useState(false);
   const codeRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const { mutateAsync: alterarSenha } = useAlterarSenha();
+  const { mutateAsync: solicitarCodigo } = useSolicitarCodigoOtp();
+  const { mutateAsync: verificarCodigo } = useVerificarCodigoOtp();
+  const { mutateAsync: redefinirSenha } = useRedefinirSenhaOtp();
 
   const handleClose = () => {
     onClose();
     setTimeout(() => {
       setStep(1); setEmail(defaultEmail); setCode(["", "", "", "", "", ""]);
       setPassword(""); setConfirm(""); setShowPass(false); setError(""); setLoading(false); setResent(false);
+      setDemoCode(null);
     }, 300);
   };
 
-  const handleSendCode = () => {
+  const handleSendCode = async () => {
     setError("");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError("Digite um e-mail válido."); return; }
     setLoading(true);
-    setTimeout(() => { setLoading(false); setStep(2); setTimeout(() => codeRefs.current[0]?.focus(), 100); }, 900);
+    try {
+      const res = await solicitarCodigo(email);
+      if (res?.codigoDemo) setDemoCode(res.codigoDemo);
+      setStep(2);
+      setTimeout(() => codeRefs.current[0]?.focus(), 100);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "E-mail não cadastrado na plataforma.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCodeChange = (idx: number, value: string) => {
@@ -92,31 +105,45 @@ export const PasswordResetModal = ({
     if (e.key === "Backspace" && !code[idx] && idx > 0) codeRefs.current[idx - 1]?.focus();
   };
 
-  const handleVerifyCode = () => {
+  const handleVerifyCode = async () => {
     setError("");
-    if (code.some((c) => !c)) { setError("Digite o código de 6 dígitos."); return; }
+    const codigoStr = code.join("");
+    if (codigoStr.length < 6) { setError("Digite o código de 6 dígitos."); return; }
     setLoading(true);
-    setTimeout(() => { setLoading(false); setStep(3); }, 900);
+    try {
+      await verificarCodigo({ email, codigo: codigoStr });
+      setStep(3);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Código incorreto ou expirado.");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleResend = () => {
-    setResent(true); setCode(["", "", "", "", "", ""]); codeRefs.current[0]?.focus();
-    setTimeout(() => setResent(false), 2500);
+  const handleResend = async () => {
+    setError("");
+    try {
+      const res = await solicitarCodigo(email);
+      if (res?.codigoDemo) setDemoCode(res.codigoDemo);
+      setResent(true);
+      setCode(["", "", "", "", "", ""]);
+      codeRefs.current[0]?.focus();
+      setTimeout(() => setResent(false), 3000);
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Erro ao reenviar código.");
+    }
   };
 
   const handleResetPassword = async () => {
     setError("");
-    if (password.length < 6) { setError("A senha deve ter ao menos 6 caracteres."); return; }
+    if (password.length < 6) { setError("A senha deve ter no mínimo 6 caracteres."); return; }
     if (password !== confirm) { setError("As senhas não coincidem."); return; }
     setLoading(true);
     try {
-      // For TCC: uses 'senha123' as the "current password" since user came via email reset flow
-      // In a real app this would use a reset token instead
-      await alterarSenha({ senhaAtual: password, novaSenha: password });
+      await redefinirSenha({ email, codigo: code.join(""), novaSenha: password });
       setStep(4);
     } catch (err: any) {
-      // If it fails (wrong current password), just simulate success for the TCC demo
-      setStep(4);
+      setError(err.response?.data?.message || "Erro ao redefinir a senha. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -171,6 +198,25 @@ export const PasswordResetModal = ({
           )}
           {step === 2 && (
             <motion.div key="s2" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }}>
+              {demoCode && (
+                <div className="mb-4 p-3 rounded-2xl bg-blue-50 border border-blue-200 text-center">
+                  <p className="text-[11px] text-zinc-500 font-medium mb-1">Código de verificação gerado para teste:</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="font-mono text-[16px] font-bold text-primary tracking-widest">{demoCode}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const digits = demoCode.split("");
+                        setCode(digits);
+                        setError("");
+                      }}
+                      className="text-[11px] bg-primary text-white px-2.5 py-1 rounded-lg hover:bg-primary/90 font-semibold transition-colors"
+                    >
+                      Preencher código
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="flex justify-center gap-2 mb-4">
                 {code.map((digit, i) => (
                   <input key={i} ref={(el) => { codeRefs.current[i] = el; }} value={digit} onChange={(e) => handleCodeChange(i, e.target.value)} onKeyDown={(e) => handleCodeKeyDown(i, e)} inputMode="numeric" maxLength={1} className="w-11 h-13 py-3 text-center text-[18px] rounded-xl outline-none transition-all" style={{ border: `1px solid ${digit ? "#006FEE" : "#e4e4e7"}`, background: digit ? "#eff6ff" : "#fafafa", color: "#09090b", fontWeight: 700 }} />

@@ -8,7 +8,7 @@ import {
 import { Button, Switch } from "../components/ui/nextui-shim";
 import { motion, AnimatePresence } from "framer-motion";
 
-type TimeSlot = { id: string; start: string; end: string };
+type TimeSlot = { id: string; start: string; end: string; price: number };
 type DaySchedule = { active: boolean; slots: TimeSlot[] };
 type WeeklySchedule = { [key: string]: DaySchedule };
 
@@ -58,7 +58,8 @@ export const DashboardSchedule = () => {
             newSchedule[dayConfig.key].slots.push({
               id: Math.random().toString(),
               start: b.hora_inicio,
-              end: b.hora_fim
+              end: b.hora_fim,
+              price: b.preco || 60
             });
           }
         });
@@ -73,25 +74,25 @@ export const DashboardSchedule = () => {
       [dayKey]: {
         ...prev[dayKey],
         active: !prev[dayKey].active,
-        slots: !prev[dayKey].active && prev[dayKey].slots.length === 0 ? [{ id: Math.random().toString(), start: "09:00", end: "17:00" }] : prev[dayKey].slots,
+        slots: !prev[dayKey].active && prev[dayKey].slots.length === 0 ? [{ id: Math.random().toString(), start: "09:00", end: "17:00", price: 60 }] : prev[dayKey].slots,
       },
     }));
   };
 
   const addSlot = (dayKey: string) => {
-    setSchedule((prev) => ({ ...prev, [dayKey]: { ...prev[dayKey], slots: [...prev[dayKey].slots, { id: Math.random().toString(), start: "09:00", end: "17:00" }] } }));
+    setSchedule((prev) => ({ ...prev, [dayKey]: { ...prev[dayKey], slots: [...prev[dayKey].slots, { id: Math.random().toString(), start: "09:00", end: "17:00", price: 60 }] } }));
   };
 
   const removeSlot = (dayKey: string, slotId: string) => {
     setSchedule((prev) => ({ ...prev, [dayKey]: { ...prev[dayKey], slots: prev[dayKey].slots.filter((s) => s.id !== slotId) } }));
   };
 
-  const updateSlot = (dayKey: string, slotId: string, field: "start" | "end", value: string) => {
+  const updateSlot = (dayKey: string, slotId: string, field: "start" | "end" | "price", value: string | number) => {
     setSchedule((prev) => ({ ...prev, [dayKey]: { ...prev[dayKey], slots: prev[dayKey].slots.map((s) => (s.id === slotId ? { ...s, [field]: value } : s)) } }));
   };
-
+  
   const applyPreset = (dayKey: string, preset: typeof PRESETS[0]) => {
-    setSchedule((prev) => ({ ...prev, [dayKey]: { active: true, slots: [...prev[dayKey].slots, { id: Math.random().toString(), start: preset.start, end: preset.end }] } }));
+    setSchedule((prev) => ({ ...prev, [dayKey]: { active: true, slots: [...prev[dayKey].slots, { id: Math.random().toString(), start: preset.start, end: preset.end, price: 60 }] } }));
   };
 
   const copyToAll = (sourceDayKey: string) => {
@@ -115,7 +116,7 @@ export const DashboardSchedule = () => {
            const dayMap: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 };
            return {
              dia_semana: dayMap[key],
-             blocos: data.slots.map(s => ({ hora_inicio: s.start, hora_fim: s.end, preco: 100 })) // TODO: Mudar 100 se quiser preco variável
+             blocos: data.slots.map(s => ({ hora_inicio: s.start, hora_fim: s.end, preco: Number(s.price) || 60 }))
            };
         })
     };
@@ -327,6 +328,19 @@ export const DashboardSchedule = () => {
                                         <input type="time" value={slot.start} onChange={(e) => updateSlot(selectedDay, slot.id, "start", e.target.value)} className="px-3 py-2 rounded-xl text-[13px] outline-none w-[110px]" style={{ border: "1px solid #e4e4e7", color: "#09090b", background: "white", fontWeight: 600 }} />
                                         <div className="w-4 h-px" style={{ background: "#d4d4d8" }} />
                                         <input type="time" value={slot.end} onChange={(e) => updateSlot(selectedDay, slot.id, "end", e.target.value)} className="px-3 py-2 rounded-xl text-[13px] outline-none w-[110px]" style={{ border: "1px solid #e4e4e7", color: "#09090b", background: "white", fontWeight: 600 }} />
+                                      </div>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        <span className="text-[12px] text-zinc-500 font-semibold">R$</span>
+                                        <input
+                                          type="number"
+                                          min={10}
+                                          step={5}
+                                          value={slot.price ?? 60}
+                                          onChange={(e) => updateSlot(selectedDay, slot.id, "price", Number(e.target.value))}
+                                          className="w-20 px-2.5 py-2 rounded-xl text-[13px] outline-none text-center"
+                                          style={{ border: "1px solid #e4e4e7", color: "#09090b", background: "white", fontWeight: 600 }}
+                                          placeholder="60"
+                                        />
                                       </div>
                                       <span className="hidden sm:block px-2 py-1 rounded-lg text-[10px]" style={{ background: "#dcfce7", color: "#16a34a", fontWeight: 700 }}>{hours > 0 ? `${hours.toFixed(hours % 1 ? 1 : 0)}h` : "–"}</span>
                                       <Button isIconOnly variant="light" size="sm" className="text-zinc-300 hover:text-red-500 shrink-0" onPress={() => removeSlot(selectedDay, slot.id)}><Trash2 size={14} /></Button>

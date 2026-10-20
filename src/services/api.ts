@@ -2,13 +2,12 @@ import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000',
+  baseURL: import.meta.env.VITE_API_URL || 'http://192.168.18.9:3000',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Interceptor para adicionar o token em todas as requisições
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token;
   if (token) {

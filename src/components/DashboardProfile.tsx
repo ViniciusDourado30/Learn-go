@@ -44,27 +44,63 @@ export const DashboardProfile = () => {
 
   useEffect(() => {
     if (apiData) {
-      const p = { ...apiData.user, ...apiData.profile };
-      p.name = `${p.nome} ${p.sobrenome}`;
+      const p = { ...apiData.user, ...apiData.profile, stats: apiData.stats };
+      p.name = `${p.nome || ""} ${p.sobrenome || ""}`.trim();
+      p.idioma = p.idioma || (Array.isArray(p.idiomas) && p.idiomas.length > 0 ? p.idiomas.join(", ") : "") || "";
       
-      const c = countries.find(x => x.name === p.pais);
-      if (c) { p.paisCode = c.isoCode; }
+      // Match Country
+      let countryIso = "";
+      if (p.pais) {
+        const foundC = countries.find(x => 
+          x.name?.toLowerCase() === p.pais.toLowerCase() ||
+          x.isoCode?.toLowerCase() === p.pais.toLowerCase() ||
+          (p.pais.toLowerCase().includes("brasil") && x.isoCode === "BR") ||
+          (p.pais.toLowerCase().includes("brazil") && x.isoCode === "BR")
+        );
+        if (foundC) {
+          countryIso = foundC.isoCode;
+          p.paisCode = foundC.isoCode;
+          p.pais = foundC.name;
+        }
+      }
       
-      setData(p); setDraft(p);
+      // Match State and load Cities
+      if (countryIso) {
+        const countryStates = State.getStatesOfCountry(countryIso);
+        setStates(countryStates);
+        
+        if (p.estado) {
+          const foundS = countryStates.find(x => 
+            x.name?.toLowerCase() === p.estado.toLowerCase() ||
+            x.isoCode?.toLowerCase() === p.estado.toLowerCase() ||
+            x.name?.toLowerCase().includes(p.estado.toLowerCase()) ||
+            p.estado.toLowerCase().includes(x.name?.toLowerCase())
+          );
+          if (foundS) {
+            p.estadoCode = foundS.isoCode;
+            p.estado = foundS.name;
+            const stateCities = City.getCitiesOfState(countryIso, foundS.isoCode);
+            setCities(stateCities);
+          }
+        }
+      }
+
+      setData(p); 
+      setDraft(p);
     }
   }, [apiData]);
 
-  useEffect(() => {
-    if (draft.paisCode) setStates(State.getStatesOfCountry(draft.paisCode));
-    else setStates([]);
-  }, [draft.paisCode]);
-  
-  useEffect(() => {
-    if (draft.paisCode && draft.estadoCode) setCities(City.getCitiesOfState(draft.paisCode, draft.estadoCode));
-    else setCities([]);
-  }, [draft.paisCode, draft.estadoCode]);
-
-  const startEdit = () => { setDraft(data); setEditing(true); };
+  const startEdit = () => { 
+    if (data.paisCode) {
+      const st = State.getStatesOfCountry(data.paisCode);
+      setStates(st);
+      if (data.estadoCode) {
+        setCities(City.getCitiesOfState(data.paisCode, data.estadoCode));
+      }
+    }
+    setDraft({ ...data }); 
+    setEditing(true); 
+  };
   const cancelEdit = () => { setEditing(false); setDraft(data); };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,34 +111,43 @@ export const DashboardProfile = () => {
   };
 
   const saveEdit = () => {
-    const [nome, ...sobrenomeParts] = draft.name.split(" ");
-    const cName = Country.getCountryByCode(draft.paisCode)?.name || "";
-    const sName = State.getStateByCodeAndCountry(draft.estadoCode, draft.paisCode)?.name || "";
+    const [nome, ...sobrenomeParts] = (draft.name || "").split(" ");
+    const cObj = draft.paisCode ? Country.getCountryByCode(draft.paisCode) : null;
+    const sObj = draft.paisCode && draft.estadoCode ? State.getStateByCodeAndCountry(draft.estadoCode, draft.paisCode) : null;
+    const cName = cObj?.name || draft.pais || "";
+    const sName = sObj?.name || draft.estado || "";
+    const cityName = draft.cidade || "";
     
     const dto: any = {
-      nome: nome, sobrenome: sobrenomeParts.join(" "), telefone: draft.telefone, 
-      ocupacao: draft.ocupacao, idioma: draft.idioma, sobre: draft.sobre,
-      pais: cName, estado: sName, cidade: draft.cidade,
+      nome: nome, 
+      sobrenome: sobrenomeParts.join(" "), 
+      telefone: draft.telefone, 
+      ocupacao: draft.ocupacao, 
+      idioma: draft.idioma, 
+      sobre: draft.sobre,
+      pais: cName, 
+      estado: sName, 
+      cidade: cityName,
     };
 
-    // Salva o preço médio se for professor
-    if (role === "PROFESSOR" && draft.preco_medio) {
-      dto.preco_medio = Number(draft.preco_medio);
-    }
-
     salvarPerfil(dto, {
-      onSuccess: () => { setEditing(false); setSaved(true); setTimeout(() => setSaved(false), 2200); }
+      onSuccess: () => { 
+        setData((prev: any) => ({ ...prev, ...dto, paisCode: draft.paisCode, estadoCode: draft.estadoCode }));
+        setEditing(false); 
+        setSaved(true); 
+        setTimeout(() => setSaved(false), 2200); 
+      }
     });
   };
 
   const stats = role === "PROFESSOR" ? [
-    { icon: BookOpen, label: "Cursos publicados", value: "0", color: "#006FEE", hint: "Na plataforma", delta: "0", trend: "flat" as const, spark: [0,0] },
-    { icon: Star, label: "Avaliação média", value: "0.0", color: "#d97706", hint: "Reviews de alunos", delta: "0", trend: "flat" as const, spark: [0,0] },
-    { icon: Award, label: "Alunos ativos", value: "0", color: "#7c3aed", hint: "Total de matrículas", delta: "0%", trend: "flat" as const, spark: [0,0] },
+    { icon: BookOpen, label: "Cursos publicados", value: String(data.stats?.cursosPublicados ?? 0), color: "#006FEE", hint: "Na plataforma", delta: `${data.stats?.cursosPublicados ?? 0}`, trend: "flat" as const, spark: [0,0] },
+    { icon: Star, label: "Avaliação média", value: String(data.stats?.avaliacaoMedia ? Number(data.stats.avaliacaoMedia).toFixed(1) : "5.0"), color: "#d97706", hint: `${data.stats?.totalReviews ?? 0} avaliações`, delta: "★", trend: "up" as const, spark: [0,0] },
+    { icon: Award, label: "Alunos ativos", value: String(data.stats?.alunosAtivos ?? 0), color: "#7c3aed", hint: "Total de matrículas e aulas", delta: "alunos", trend: "flat" as const, spark: [0,0] },
   ] : [
-    { icon: BookOpen, label: "Cursos ativos", value: "0", color: "#006FEE", hint: "Em andamento", delta: "0", trend: "flat" as const, spark: [0,0] },
-    { icon: Award, label: "Sequência atual", value: "0 dias", color: "#16a34a", hint: "recorde: 0 dias", delta: "novo", trend: "flat" as const, spark: [0,0] },
-    { icon: Star, label: "XP acumulado", value: "0", color: "#d97706", hint: "Nível 1", delta: "0", trend: "flat" as const, spark: [0,0] },
+    { icon: BookOpen, label: "Cursos ativos", value: String(data.stats?.cursosAtivos ?? 0), color: "#006FEE", hint: "Em andamento", delta: "cursos", trend: "flat" as const, spark: [0,0] },
+    { icon: Award, label: "Aulas concluídas", value: String(data.stats?.aulasConcluidas ?? 0), color: "#16a34a", hint: "Aulas finalizadas", delta: "aulas", trend: "flat" as const, spark: [0,0] },
+    { icon: Star, label: "Tempo de estudo", value: `${data.stats?.tempoTotalHoras ?? 0}h`, color: "#d97706", hint: "Horas acumuladas", delta: "horas", trend: "flat" as const, spark: [0,0] },
   ];
 
   if (isLoading) return <DashboardLayout><SkeletonProfile /></DashboardLayout>;
@@ -123,7 +168,7 @@ export const DashboardProfile = () => {
             <div className="flex-1 min-w-0">
               <Chip size="sm" color={role === "PROFESSOR" ? "warning" : "primary"} variant="flat" className="text-[10px] mb-2">{role === "PROFESSOR" ? "Professor" : "Aluno"}</Chip>
               <h1 className="text-[24px] md:text-[28px] mb-1 text-white font-bold">{data.name}</h1>
-              <p className="text-[13px] text-white/50">{data.ocupacao || "Adicione sua ocupação"} · {data.pais || "Adicione país"}</p>
+              <p className="text-[13px] text-white/50">{data.ocupacao || "Adicione sua ocupação"} · {[data.cidade, data.estado, data.pais].filter(Boolean).join(", ") || "Adicione localização"}</p>
             </div>
             <div className="flex gap-2 shrink-0">
               {!editing ? <Button color="primary" size="sm" startContent={<Edit3 size={13} />} onPress={startEdit} className="text-[12px] font-bold">Editar perfil</Button> : (
@@ -151,10 +196,13 @@ export const DashboardProfile = () => {
                 <Input label="E-mail (Apenas leitura)" type="email" value={draft.email || ""} isDisabled />
                 <Input label="Telefone" value={draft.telefone || ""} onValueChange={(v) => setDraft((d:any) => ({...d, telefone: v}))} />
                 <Input label="Ocupação" value={draft.ocupacao || ""} onValueChange={(v) => setDraft((d:any) => ({...d, ocupacao: v}))} />
-                <Input label="Idioma" value={draft.idioma || ""} onValueChange={(v) => setDraft((d:any) => ({...d, idioma: v}))} />
+                <Input label="Idioma" value={draft.idioma || ""} onValueChange={(v) => setDraft((d:any) => ({...d, idioma: v}))} placeholder="Ex: Português, Inglês" />
                 
                 {role === "PROFESSOR" && (
-                  <Input label="Preço da Aula (R$)" type="number" value={draft.preco_medio || ""} onValueChange={(v) => setDraft((d:any) => ({...d, preco_medio: v}))} />
+                  <div>
+                    <Input label="Preço da Aula (R$)" value={draft.preco_medio ? `R$ ${Number(draft.preco_medio).toFixed(0)}` : "R$ 0"} isDisabled />
+                    <p className="text-[11px] text-zinc-400 mt-1">Calculado automaticamente pela média dos horários na aba Disponibilidade.</p>
+                  </div>
                 )}
                 
                 <div>
@@ -165,7 +213,17 @@ export const DashboardProfile = () => {
                         <img src={`https://flagcdn.com/w20/${draft.paisCode.toLowerCase()}.png`} alt="" className="w-4 h-3 rounded-sm" />
                       </div>
                     )}
-                    <select value={draft.paisCode || ""} onChange={e => setDraft((d:any) => ({...d, paisCode: e.target.value, estadoCode: "", cidade: ""}))} className={`w-full h-10 ${draft.paisCode ? "pl-9" : "px-3"} pr-3 rounded-xl text-[13px] border border-zinc-200`}>
+                    <select 
+                      value={draft.paisCode || ""} 
+                      onChange={e => {
+                        const pCode = e.target.value;
+                        setDraft((d: any) => ({ ...d, paisCode: pCode, estadoCode: "", cidade: "" }));
+                        const st = State.getStatesOfCountry(pCode);
+                        setStates(st);
+                        setCities([]);
+                      }} 
+                      className={`w-full h-10 ${draft.paisCode ? "pl-9" : "px-3"} pr-3 rounded-xl text-[13px] border border-zinc-200`}
+                    >
                       <option value="" disabled>Selecione</option>
                       {countries.map(c => <option key={c.isoCode} value={c.isoCode}>{c.name}</option>)}
                     </select>
@@ -173,14 +231,29 @@ export const DashboardProfile = () => {
                 </div>
                 <div>
                   <label className="block text-[12px] mb-1.5 font-medium text-zinc-700">Estado</label>
-                  <select value={draft.estadoCode || ""} disabled={!draft.paisCode} onChange={e => setDraft((d:any) => ({...d, estadoCode: e.target.value, cidade: ""}))} className="w-full h-10 px-3 rounded-xl text-[13px] border border-zinc-200 disabled:opacity-50">
+                  <select 
+                    value={draft.estadoCode || ""} 
+                    disabled={!draft.paisCode} 
+                    onChange={e => {
+                      const sCode = e.target.value;
+                      setDraft((d: any) => ({ ...d, estadoCode: sCode, cidade: "" }));
+                      const ct = City.getCitiesOfState(draft.paisCode, sCode);
+                      setCities(ct);
+                    }} 
+                    className="w-full h-10 px-3 rounded-xl text-[13px] border border-zinc-200 disabled:opacity-50"
+                  >
                     <option value="" disabled>Selecione</option>
                     {states.map(s => <option key={s.isoCode} value={s.isoCode}>📍 {s.name}</option>)}
                   </select>
                 </div>
                 <div>
                   <label className="block text-[12px] mb-1.5 font-medium text-zinc-700">Cidade</label>
-                  <select value={draft.cidade || ""} disabled={!draft.estadoCode} onChange={e => setDraft((d:any) => ({...d, cidade: e.target.value}))} className="w-full h-10 px-3 rounded-xl text-[13px] border border-zinc-200 disabled:opacity-50">
+                  <select 
+                    value={draft.cidade || ""} 
+                    disabled={!draft.estadoCode} 
+                    onChange={e => setDraft((d: any) => ({ ...d, cidade: e.target.value }))} 
+                    className="w-full h-10 px-3 rounded-xl text-[13px] border border-zinc-200 disabled:opacity-50"
+                  >
                     <option value="" disabled>Selecione</option>
                     {cities.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                   </select>
@@ -195,7 +268,7 @@ export const DashboardProfile = () => {
                 {[
                   { icon: Mail, label: "E-mail", value: data.email },
                   { icon: Phone, label: "Telefone", value: data.telefone || "Não informado" },
-                  { icon: MapPin, label: "Localização", value: data.cidade && data.estado ? `${data.cidade}, ${data.estado}` : "Não informado" },
+                  { icon: MapPin, label: "Localização", value: [data.cidade, data.estado, data.pais].filter(Boolean).join(", ") || "Não informado" },
                   { icon: Briefcase, label: "Ocupação", value: data.ocupacao || "Não informado" },
                   { icon: Globe, label: "Idioma", value: data.idioma || "Não informado" },
                 ].map((f) => (

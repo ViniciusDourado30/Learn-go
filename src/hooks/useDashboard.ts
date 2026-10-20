@@ -20,6 +20,12 @@ export const useUpdatePerfil = () => {
   return useMutation({ mutationFn: async (data: any) => await api.patch('/auth/perfil', data), onSuccess: () => qc.invalidateQueries({ queryKey: ['perfil'] }) });
 };
 
+// --- ATIVIDADE SEMANAL ---
+export const useAtividadeSemanal = () => useQuery({
+  queryKey: ['atividade-semanal'],
+  queryFn: async () => (await api.get('/auth/atividade-semanal')).data
+});
+
 // --- DISPONIBILIDADE ---
 export const useDisponibilidade = () => useQuery({ queryKey: ['disponibilidade'], queryFn: async () => (await api.get('/aulas/disponibilidade')).data });
 export const useSalvarDisponibilidade = () => {
@@ -81,6 +87,7 @@ export const useRegistrarProgresso = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['curso'] });
       qc.invalidateQueries({ queryKey: ['meus-cursos'] });
+      qc.invalidateQueries({ queryKey: ['atividade-semanal'] });
     }
   });
 };
@@ -89,15 +96,19 @@ export const useRegistrarProgresso = () => {
 export const useMeusAgendamentos = () => useQuery({ queryKey: ['agendamentos'], queryFn: async () => (await api.get('/agendamentos/meus')).data });
 export const useAgendarAula = () => {
   const qc = useQueryClient();
-  return useMutation({ mutationFn: async (data: any) => await api.post('/agendamentos', data), onSuccess: () => qc.invalidateQueries({ queryKey: ['agendamentos'] }) });
+  return useMutation({ 
+    mutationFn: async (data: any) => await api.post('/agendamentos', data), 
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['agendamentos'] });
+      qc.invalidateQueries({ queryKey: ['atividade-semanal'] });
+    } 
+  });
 };
 
 export const getImageUrl = (path?: string | null): string | null => {
   if (!path) return null;
-  // Se a imagem já vier da internet (ex: Google, Unsplash) retorna ela mesma
   if (path.startsWith("http") || path.startsWith("data:")) return path;
   
-  // Se for uma imagem do banco local, junta com a URL do backend
   const baseUrl = import.meta.env.VITE_API_URL || "http://localhost:3000";
   const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
   const cleanPath = path.startsWith('/') ? path : `/${path}`;
@@ -113,7 +124,6 @@ export const useComprarCurso = () => {
       return data;
     },
     onSuccess: () => {
-      // Força o sistema a recarregar a lista de cursos do aluno instantaneamente
       qc.invalidateQueries({ queryKey: ['meus-cursos'] });
       qc.invalidateQueries({ queryKey: ['cursos'] });
     }
@@ -147,6 +157,12 @@ export const useAvaliacoesProfessor = (professorId: string) => useQuery({
   enabled: !!professorId
 });
 
+export const usePodeAvaliarProfessor = (professorId: string) => useQuery({
+  queryKey: ['pode-avaliar', professorId],
+  queryFn: async () => (await api.get(`/avaliacoes/pode-avaliar/${professorId}`)).data,
+  enabled: !!professorId
+});
+
 export const useCriarAvaliacao = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -157,6 +173,7 @@ export const useCriarAvaliacao = () => {
     onSuccess: (_, variables) => {
       qc.invalidateQueries({ queryKey: ['avaliacoes', variables.professorId] });
       qc.invalidateQueries({ queryKey: ['professor', variables.professorId] });
+      qc.invalidateQueries({ queryKey: ['pode-avaliar', variables.professorId] });
     }
   });
 };
@@ -165,7 +182,7 @@ export const useCriarAvaliacao = () => {
 export const useNotificacoes = () => useQuery({
   queryKey: ['notificacoes'],
   queryFn: async () => (await api.get('/notificacoes')).data,
-  refetchInterval: 30000 // Atualiza a cada 30 segundos
+  refetchInterval: 30000
 });
 
 export const useMarcarNotificacaoLida = () => {
@@ -189,5 +206,43 @@ export const useRemoverNotificacao = () => {
   return useMutation({
     mutationFn: async (id: string) => await api.delete(`/notificacoes/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['notificacoes'] })
+  });
+};
+
+// --- RECUPERAÇÃO DE SENHA OTP ---
+export const useSolicitarCodigoOtp = () => {
+  return useMutation({
+    mutationFn: async (email: string) => {
+      const res = await api.post('/auth/solicitar-codigo', { email });
+      return res.data;
+    }
+  });
+};
+
+export const useVerificarCodigoOtp = () => {
+  return useMutation({
+    mutationFn: async ({ email, codigo }: { email: string; codigo: string }) => {
+      const res = await api.post('/auth/verificar-codigo', { email, codigo });
+      return res.data;
+    }
+  });
+};
+
+export const useRedefinirSenhaOtp = () => {
+  return useMutation({
+    mutationFn: async ({ email, codigo, novaSenha }: { email: string; codigo: string; novaSenha: string }) => {
+      const res = await api.post('/auth/redefinir-senha', { email, codigo, novaSenha });
+      return res.data;
+    }
+  });
+};
+
+// --- CONTATO SUPORTE ---
+export const useEnviarContatoSuporte = () => {
+  return useMutation({
+    mutationFn: async ({ email, subject, message }: { email: string; subject: string; message: string }) => {
+      const res = await api.post('/auth/contato-suporte', { email, subject, message });
+      return res.data;
+    }
   });
 };

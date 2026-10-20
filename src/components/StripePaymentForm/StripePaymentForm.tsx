@@ -18,6 +18,7 @@ const CheckoutForm = ({ payload, onSuccess }: { payload: any; onSuccess: () => v
 
     try {
       const clientSecret = await createPaymentIntent(payload);
+
       const cardElement = elements.getElement(CardElement);
       if (!cardElement) throw new Error('Erro no formulário de cartão');
 

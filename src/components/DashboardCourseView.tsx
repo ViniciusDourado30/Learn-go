@@ -5,7 +5,7 @@ import { useCurso, getImageUrl, usePerfil, useAdicionarDuvida, useRegistrarProgr
 import { useAuthStore } from "../store/authStore";
 import {
   ChevronLeft, PlayCircle, CheckCircle, FileText, SkipForward, MoreVertical, Play, Plus,
-  MessageSquare, Paperclip, Send, X, ImageIcon, Reply as ReplyIcon, ThumbsUp, Clock,
+  MessageSquare, Paperclip, Send, X, ImageIcon, Reply as ReplyIcon, ThumbsUp, Clock, ExternalLink,
 } from "lucide-react";
 import { Button, Progress, Avatar, Chip, Tabs, Tab, Skeleton, Textarea } from "../components/ui/nextui-shim";
 
@@ -18,30 +18,7 @@ interface Comment {
   attachments?: Attachment[]; replies: Comment[];
 }
 
-const INITIAL_COMMENTS: Comment[] = [
-  {
-    id: "c1", author: "Marcelo",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=facearea&facepad=2&w=80&q=80",
-    text: "Onde posso encontrar mais exemplos sobre esse tema? Tentei aplicar o conceito num projeto e ficou um pouco confuso na parte de implementação.",
-    time: "Há 2 dias", likes: 4, replies: [
-      {
-        id: "c1r1", author: "Professor(a)",
-        avatar: "https://images.unsplash.com/photo-1758685848226-eedca8f6bce7?crop=entropy&cs=tinysrgb&fit=facearea&facepad=2&w=80&q=80",
-        isProf: true,
-        text: "Olá Marcelo! Dá uma olhada na aba 'Materiais' desta aula — adicionei um PDF extra com exercícios resolvidos. Qualquer dúvida adicional, me chame!",
-        time: "Há 1 dia", likes: 8, replies: [
-          { id: "c1r1r1", author: "Marcelo", avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=facearea&facepad=2&w=80&q=80", text: "Perfeito, professora! Já encontrei. Muito obrigado!", time: "Há 22 horas", likes: 2, replies: [] }
-        ],
-      },
-    ],
-  },
-  {
-    id: "c2", author: "Ana Costa",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=tinysrgb&fit=facearea&facepad=2&w=80&q=80",
-    text: "Conteúdo excelente! Consegui aplicar imediatamente no meu trabalho.",
-    time: "Há 5 dias", likes: 12, replies: [],
-  },
-];
+const INITIAL_COMMENTS: Comment[] = [];
 
 const SkeletonCourseView = () => (
   <DashboardLayout>
@@ -144,7 +121,8 @@ const toggleLikeInTree = (nodes: Comment[], id: string): Comment[] =>
 export const DashboardCourseView = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const role = useAuthStore(state => state.role);
+  const { user } = useAuthStore();
+  const role = user?.role;
   const { data: course, isLoading } = useCurso(id!);
 
   const [activeTab, setActiveTab] = useState("overview");
@@ -159,7 +137,7 @@ export const DashboardCourseView = () => {
   const { mutate: adicionarDuvida } = useAdicionarDuvida();
   const { mutate: registrarProgresso } = useRegistrarProgresso();
 
-  const userAvatar = perfil?.foto_url ? getImageUrl(perfil.foto_url) : "https://ui-avatars.com/api/?name=Eu&background=006FEE&color=fff";
+  const userAvatar = perfil?.profile?.foto_url || perfil?.foto_url ? getImageUrl(perfil?.profile?.foto_url || perfil?.foto_url) : `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.nome || "Eu")}&background=006FEE&color=fff`;
 
   const currentModulo = course?.modulos?.[activeModule];
   const currentAula = currentModulo?.aulas?.[activeLesson];
@@ -172,52 +150,93 @@ export const DashboardCourseView = () => {
     }
   }, [course]);
 
-  // Simular assistir aula por 5s para marcar 60%
   useEffect(() => {
     if (!currentAula) return;
     const timer = setTimeout(() => {
       registrarProgresso(currentAula.id);
-    }, 5000);
+    }, 4000);
     return () => clearTimeout(timer);
   }, [currentAula]);
 
-  const getEmbedUrl = (url: string, aulaId?: string) => {
-    if (!url) return "";
-    let finalUrl = url;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    if (match && match[2].length === 11) finalUrl = `https://www.youtube.com/embed/${match[2]}`;
-    // Adiciona o aulaId para forçar reload no Iframe se for a mesma url base
-    return aulaId ? `${finalUrl}?aulaId=${aulaId}` : finalUrl;
+  const extractYouTubeId = (url?: string | null): string | null => {
+    if (!url) return null;
+    const cleanUrl = url.trim();
+    const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts|live)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
+    const match = cleanUrl.match(regExp);
+    if (match && match[1]) return match[1];
+    if (/^[a-zA-Z0-9_-]{11}$/.test(cleanUrl)) return cleanUrl;
+    return null;
   };
 
-  const addComment = (text: string) => {
-    if (currentAula) adicionarDuvida({ aulaId: currentAula.id, texto: text });
+  const getEmbedInfo = (url?: string | null) => {
+    if (!url) return { type: 'none' as const, embedUrl: '', directUrl: '' };
+    const ytId = extractYouTubeId(url);
+    if (ytId) {
+      return {
+        type: 'youtube' as const,
+        embedUrl: `https://www.youtube-nocookie.com/embed/${ytId}?rel=0&modestbranding=1`,
+        directUrl: `https://www.youtube.com/watch?v=${ytId}`,
+        ytId,
+      };
+    }
+    if (/\.(mp4|webm|ogg)($|\?)/i.test(url)) {
+      return { type: 'video' as const, embedUrl: url, directUrl: url };
+    }
+    return { type: 'other' as const, embedUrl: url, directUrl: url };
+  };
+
+  const addComment = (text: string, attachments?: Attachment[]) => {
+    if (!text.trim()) return;
+    if (currentAula) {
+      adicionarDuvida({ aulaId: currentAula.id, texto: text.trim() });
+    }
+    const c: Comment = {
+      id: `c${Date.now()}`,
+      author: user?.nome ? `${user.nome} ${user.sobrenome || ""}`.trim() : "Você",
+      avatar: userAvatar,
+      isProf: role === "PROFESSOR",
+      text: text.trim(),
+      time: "Agora",
+      likes: 0,
+      attachments: attachments || [],
+      replies: []
+    };
+    setComments(p => [c, ...p]);
     setComposing(false);
   };
   const addReply = (parentId: string, text: string, attachments: Attachment[]) => {
-    // mock local temporário para respostas
-    const r: Comment = { id: `r${Date.now()}`, author: perfil?.nome || "Você", avatar: userAvatar, isProf: role === "PROFESSOR", text, time: "Agora", likes: 0, attachments, replies: [] };
-    setComments(p => addReplyToTree(p, parentId, r)); setReplyingTo(null);
+    if (!text.trim()) return;
+    const r: Comment = {
+      id: `r${Date.now()}`,
+      author: user?.nome ? `${user.nome} ${user.sobrenome || ""}`.trim() : "Você",
+      avatar: userAvatar,
+      isProf: role === "PROFESSOR",
+      text: text.trim(),
+      time: "Agora",
+      likes: 0,
+      attachments,
+      replies: []
+    };
+    setComments(p => addReplyToTree(p, parentId, r));
+    setReplyingTo(null);
   };
   const toggleLike = (id: string) => setComments(p => toggleLikeInTree(p, id));
   const toggleReplyTo = (id: string) => setReplyingTo(cur => cur === id ? null : id);
 
-  // Mapear duvidas do banco de dados
   useEffect(() => {
     if (currentAula?.duvidas) {
       const dbComments: Comment[] = currentAula.duvidas.map((d: any) => ({
         id: d.id,
-        author: d.aluno?.nome ? `${d.aluno.nome} ${d.aluno.sobrenome}` : "Aluno Anônimo",
-        avatar: "https://ui-avatars.com/api/?name=A&background=f4f4f5&color=000",
+        author: d.aluno?.nome ? `${d.aluno.nome} ${d.aluno.sobrenome || ""}` : "Aluno Anônimo",
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(d.aluno?.nome || "A")}&background=f4f4f5&color=000`,
         isProf: false,
         text: d.texto,
         time: new Date(d.criado_em).toLocaleDateString('pt-BR'),
         likes: d.curtidas || 0,
         replies: (d.respostas || []).map((r: any) => ({
           id: r.id,
-          author: r.autor?.nome ? `${r.autor.nome} ${r.autor.sobrenome}` : "Usuário",
-          avatar: "https://ui-avatars.com/api/?name=U&background=f4f4f5&color=000",
+          author: r.autor?.nome ? `${r.autor.nome} ${r.autor.sobrenome || ""}` : "Usuário",
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(r.autor?.nome || "U")}&background=f4f4f5&color=000`,
           isProf: r.is_teacher,
           text: r.texto,
           time: new Date(r.criado_em).toLocaleDateString('pt-BR'),
@@ -225,7 +244,7 @@ export const DashboardCourseView = () => {
           replies: []
         }))
       }));
-      setComments(dbComments.reverse()); // Recentes primeiro
+      setComments(dbComments.reverse());
     } else {
       setComments([]);
     }
@@ -234,23 +253,37 @@ export const DashboardCourseView = () => {
   if (isLoading) return <SkeletonCourseView />;
   if (!course) return <DashboardLayout><div className="p-8 text-center">Curso não encontrado.</div></DashboardLayout>;
 
+  const currentUserId = user?.id || perfil?.user?.id || perfil?.id;
+  const totalAulas = course?.modulos?.reduce((acc: number, m: any) => acc + (m.aulas?.length || 0), 0) || 1;
+  const aulasConcluidas = course?.modulos?.reduce((acc: number, m: any) => 
+    acc + (m.aulas?.filter((a: any) => a.progressos?.some((p: any) => p.concluida && (p.alunoId === currentUserId || !p.alunoId))).length || 0), 0) || 0;
+  const progressPercent = Math.round((aulasConcluidas / totalAulas) * 100) || 0;
+
   return (
     <DashboardLayout>
       <div className="flex flex-col h-[calc(100vh-60px)] w-full overflow-hidden bg-white">
-        <header className="h-14 flex items-center justify-between px-4 lg:px-6 shrink-0 z-10" style={{ borderBottom: "1px solid #f4f4f5" }}>
+        <header className="h-[72px] flex items-center justify-between px-4 lg:px-6 shrink-0 z-10" style={{ borderBottom: "1px solid #f4f4f5" }}>
           <div className="flex items-center gap-3">
             <Button isIconOnly variant="light" size="sm" onPress={() => navigate("/dashboard/my-courses")} className="text-zinc-400" aria-label="Voltar"><ChevronLeft size={18} /></Button>
-            <div className="hidden sm:block w-px h-5 bg-zinc-200" />
-            <div className="flex items-center gap-2">
-              <h1 className="text-[13px] text-zinc-800 line-clamp-1" style={{ fontWeight: 600 }}>{course.titulo}</h1>
-              <Chip size="sm" variant="flat" color="primary" className="hidden md:flex text-[9px]">Módulo {activeModule + 1}</Chip>
+            <div className="hidden sm:block w-px h-8 bg-zinc-200 mx-1" />
+            <div className="flex flex-col justify-center h-full">
+              <div className="flex items-center gap-2 mb-1">
+                <h1 className="text-[14px] text-zinc-900 line-clamp-1" style={{ fontWeight: 700 }}>{course.titulo}</h1>
+                <Chip size="sm" variant="flat" color="primary" className="hidden md:flex text-[9px] h-4 leading-none">Módulo {activeModule + 1}</Chip>
+              </div>
+              <div className="flex items-center gap-2">
+                <Avatar src={getImageUrl(course.professor?.foto_url)} className="w-4 h-4" size="sm" />
+                <span className="text-[11px] text-zinc-500 font-medium">{course.professor?.nome} {course.professor?.sobrenome}</span>
+              </div>
             </div>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="hidden lg:flex items-center gap-2.5">
-              <span className="text-[11px] text-zinc-400" style={{ fontWeight: 500 }}>Progresso</span>
-              <Progress value={course.progress || 10} color="primary" size="sm" className="w-20" />
-              <span className="text-[11px]" style={{ color: "#09090b", fontWeight: 700 }}>{course.progress || 10}%</span>
+          <div className="flex items-center gap-4">
+            <div className="hidden lg:flex flex-col items-end gap-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-zinc-400 font-medium">Seu progresso</span>
+                <span className="text-[11px]" style={{ color: "#09090b", fontWeight: 700 }}>{progressPercent}%</span>
+              </div>
+              <Progress value={progressPercent} color="primary" size="sm" className="w-24" />
             </div>
             <Button isIconOnly variant="light" size="sm" className="text-zinc-400"><MoreVertical size={16} /></Button>
           </div>
@@ -258,9 +291,58 @@ export const DashboardCourseView = () => {
 
         <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
           <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-            <div className="bg-black w-full aspect-video lg:aspect-[21/9] relative flex justify-center">
+            <div className="bg-black w-full aspect-video lg:aspect-[21/9] relative flex flex-col items-center justify-center overflow-hidden group">
               {activeVideoUrl ? (
-                <iframe key={currentAula?.id || activeVideoUrl} className="w-full h-full" src={getEmbedUrl(activeVideoUrl, currentAula?.id)} title="Video player" frameBorder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                (() => {
+                  const info = getEmbedInfo(activeVideoUrl);
+                  if (info.type === 'youtube') {
+                    return (
+                      <>
+                        <iframe
+                          key={info.ytId}
+                          className="w-full h-full"
+                          src={info.embedUrl}
+                          title={activeAulaTitle || "Aula"}
+                          frameBorder="0"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                          allowFullScreen
+                        />
+                        <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+                          <a
+                            href={info.directUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-black/75 hover:bg-red-600 text-white text-[11px] backdrop-blur transition-all font-semibold shadow-lg"
+                          >
+                            <ExternalLink size={12} />
+                            Assistir no YouTube
+                          </a>
+                        </div>
+                      </>
+                    );
+                  }
+                  if (info.type === 'video') {
+                    return (
+                      <video
+                        key={info.embedUrl}
+                        controls
+                        className="w-full h-full object-contain"
+                        src={info.embedUrl}
+                      />
+                    );
+                  }
+                  return (
+                    <iframe
+                      key={activeVideoUrl}
+                      className="w-full h-full"
+                      src={activeVideoUrl}
+                      title="Video player"
+                      frameBorder="0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  );
+                })()
               ) : (
                 <div className="flex items-center justify-center h-full text-white/50">Nenhum vídeo selecionado</div>
               )}
@@ -271,17 +353,34 @@ export const DashboardCourseView = () => {
                 <h2 className="text-[16px] mb-0.5" style={{ color: "#09090b", fontWeight: 700 }}>{activeAulaTitle || "Selecione uma aula"}</h2>
                 <p className="text-[12px] text-zinc-400">Módulo {activeModule + 1} · {currentModulo?.titulo}</p>
               </div>
-              <Button color="primary" size="sm" endContent={<SkipForward size={14} />} className="text-[12px]" style={{ fontWeight: 600 }}
-                onPress={() => {
-                  if (currentModulo?.aulas && activeLesson < currentModulo.aulas.length - 1) {
-                    const next = currentModulo.aulas[activeLesson + 1];
-                    setActiveLesson(activeLesson + 1); setActiveVideoUrl(next.video_url); setActiveAulaTitle(next.titulo);
-                  } else if (course.modulos && activeModule < course.modulos.length - 1) {
-                    const nextMod = course.modulos[activeModule + 1];
-                    setActiveModule(activeModule + 1); setActiveLesson(0);
-                    if (nextMod.aulas?.[0]) { setActiveVideoUrl(nextMod.aulas[0].video_url); setActiveAulaTitle(nextMod.aulas[0].titulo); }
-                  }
-                }}>Próxima</Button>
+              <div className="flex items-center gap-2">
+                {currentAula && (
+                  <Button 
+                    size="sm" 
+                    variant="flat" 
+                    color="success" 
+                    startContent={<CheckCircle size={14} />} 
+                    className="text-[12px] font-semibold"
+                    onPress={() => registrarProgresso(currentAula.id)}
+                  >
+                    Concluir Aula
+                  </Button>
+                )}
+                <Button color="primary" size="sm" endContent={<SkipForward size={14} />} className="text-[12px]" style={{ fontWeight: 600 }}
+                  onPress={() => {
+                    if (currentAula) {
+                      registrarProgresso(currentAula.id);
+                    }
+                    if (currentModulo?.aulas && activeLesson < currentModulo.aulas.length - 1) {
+                      const next = currentModulo.aulas[activeLesson + 1];
+                      setActiveLesson(activeLesson + 1); setActiveVideoUrl(next.video_url); setActiveAulaTitle(next.titulo);
+                    } else if (course.modulos && activeModule < course.modulos.length - 1) {
+                      const nextMod = course.modulos[activeModule + 1];
+                      setActiveModule(activeModule + 1); setActiveLesson(0);
+                      if (nextMod.aulas?.[0]) { setActiveVideoUrl(nextMod.aulas[0].video_url); setActiveAulaTitle(nextMod.aulas[0].titulo); }
+                    }
+                  }}>Próxima</Button>
+              </div>
             </div>
 
             <div className="px-5 pt-5 pb-10">
@@ -304,32 +403,18 @@ export const DashboardCourseView = () => {
                 </div>
               )}
               {activeTab === "resources" && (
-                <div className="space-y-3 max-w-3xl">
-                  {role === "PROFESSOR" && course?.professor?.userId === perfil?.user?.id && (
-                    <div className="flex justify-end">
-                      <Button
-                        color="primary" size="sm"
-                        startContent={<Plus size={14} />}
-                        className="text-[12px]"
-                        style={{ fontWeight: 600 }}
-                        onPress={() => document.getElementById("file-upload-input")?.click()}
-                      >
-                        Adicionar Arquivo
-                      </Button>
-                      <input id="file-upload-input" type="file" className="hidden" />
-                    </div>
-                  )}
+                <div className="space-y-4 max-w-3xl">
                   <div className="grid sm:grid-cols-2 gap-2.5">
-                    {currentAula?.materiais?.map((m: any, i: number) => (
-                      <a key={m.id || i} href={m.url} download target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3.5 rounded-xl border border-zinc-100 hover:border-zinc-200 cursor-pointer transition-all">
+                    {currentAula?.materiais?.map((mat: any) => (
+                      <a key={mat.id} href={getImageUrl(mat.url) || "#"} download target="_blank" rel="noreferrer" className="flex items-center gap-3 p-3.5 rounded-xl border border-zinc-100 hover:border-zinc-200 cursor-pointer transition-all bg-white hover:shadow-sm">
                         <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#eff6ff" }}><FileText size={16} style={{ color: "#006FEE" }} /></div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[12px] line-clamp-1" style={{ color: "#09090b", fontWeight: 600 }}>{m.nome}</p>
-                          <p className="text-[10px] text-zinc-400">PDF Document</p>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[12px] truncate" style={{ color: "#09090b", fontWeight: 600 }}>{mat.nome}</p>
+                          <p className="text-[10px] text-zinc-400">PDF de Apoio · Baixar</p>
                         </div>
                       </a>
                     ))}
-                    {!currentAula?.materiais?.length && <p className="text-[12px] text-zinc-400 p-4">Nenhum material disponível.</p>}
+                    {!currentAula?.materiais?.length && <p className="text-[12px] text-zinc-400 p-4">Nenhum material disponível para esta aula.</p>}
                   </div>
                 </div>
               )}
@@ -364,7 +449,7 @@ export const DashboardCourseView = () => {
 
           <div className="w-full lg:w-[320px] xl:w-[360px] flex flex-col shrink-0" style={{ borderLeft: "1px solid #f4f4f5" }}>
             <div className="p-4 flex items-center justify-between" style={{ borderBottom: "1px solid #f4f4f5" }}>
-              <h3 className="text-[13px]" style={{ color: "#09090b", fontWeight: 700 }}>Conteúdo</h3>
+              <h3 className="text-[13px]" style={{ color: "#09090b", fontWeight: 700 }}>Conteúdo do Curso</h3>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
               {course.modulos?.map((mod: any, modIdx: number) => {
@@ -382,7 +467,7 @@ export const DashboardCourseView = () => {
                       <div className="pb-1">
                         {mod.aulas?.map((aula: any, lessIdx: number) => {
                           const isCurrent = activeLesson === lessIdx && activeModule === modIdx;
-                          const isCompleted = aula.progressos?.some((p: any) => p.concluida && p.alunoId === perfil?.user?.id);
+                          const isCompleted = aula.progressos?.some((p: any) => p.concluida && (p.alunoId === currentUserId || !p.alunoId));
                           return (
                             <button key={aula.id} onClick={() => { setActiveModule(modIdx); setActiveLesson(lessIdx); setActiveVideoUrl(aula.video_url); setActiveAulaTitle(aula.titulo); }}
                               className={`w-full flex items-start gap-2.5 py-2 px-3.5 text-left hover:bg-zinc-50 transition-colors ${isCurrent ? "bg-primary/5" : ""}`}>

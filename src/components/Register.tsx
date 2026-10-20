@@ -58,7 +58,14 @@ export const Register = () => {
 
   const nextStep = () => setStep((s) => Math.min(s + 1, totalSteps));
   const prevStep = () => setStep((s) => Math.max(s - 1, 1));
+  const [localError, setLocalError] = useState("");
+
   const handleComplete = () => {
+    setLocalError("");
+    if (formData.password !== formData.confirmPassword) {
+      setLocalError("As senhas não coincidem.");
+      return;
+    }
     const finalData = { ...formData, role: profile, idade: Number(formData.idade) };
     const countryName = Country.getCountryByCode(formData.pais)?.name || "";
     const stateName = State.getStateByCodeAndCountry(formData.estado, formData.pais)?.name || "";
@@ -72,7 +79,20 @@ export const Register = () => {
     inputWrapper: "border-zinc-200 hover:border-zinc-300 bg-zinc-50/50 data-[focused=true]:border-primary shadow-none",
   };
 
-  const errorMessage = error ? (error as any).response?.data?.message || "Erro ao registrar. Verifique os dados." : "";
+  let errorMessage = localError;
+  if (error) {
+    const apiMsg = (error as any).response?.data?.message;
+    errorMessage = Array.isArray(apiMsg) ? apiMsg.join(", ") : (apiMsg || "Erro ao registrar. Verifique os dados.");
+  }
+
+  useEffect(() => {
+    if (errorMessage) {
+      const msg = errorMessage.toLowerCase();
+      if (msg.includes("nome") || msg.includes("idade")) setStep(1);
+      else if (msg.includes("país") || msg.includes("estado") || msg.includes("cidade")) setStep(2);
+      else if (msg.includes("senha") || msg.includes("telefone") || msg.includes("email")) setStep(3);
+    }
+  }, [errorMessage]);
 
   const renderStep = () => {
     switch (step) {
@@ -143,7 +163,13 @@ export const Register = () => {
         return (
           <motion.div key="s3" initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -16 }} className="space-y-4">
             <Input label="Email" type="email" value={formData.email} onValueChange={v => handleInputChange("email", v)} placeholder="seu@email.com" variant="bordered" classNames={inputClasses} />
-            <Input label="Telefone" type="tel" value={formData.telefone} onValueChange={v => handleInputChange("telefone", v)} placeholder="+55 11 99999-9999" variant="bordered" classNames={inputClasses} />
+            <Input label="Telefone" type="tel" value={formData.telefone} onValueChange={v => {
+              const x = v.replace(/\D/g, "");
+              let formatted = x;
+              if (x.length > 2 && x.length <= 7) formatted = `(${x.slice(0, 2)}) ${x.slice(2)}`;
+              else if (x.length > 7) formatted = `(${x.slice(0, 2)}) ${x.slice(2, 7)}-${x.slice(7, 11)}`;
+              handleInputChange("telefone", formatted);
+            }} placeholder="(11) 99999-9999" variant="bordered" classNames={inputClasses} />
             <div className="grid grid-cols-2 gap-3">
               <Input label="Senha" type="password" value={formData.password} onValueChange={v => handleInputChange("password", v)} placeholder="••••••••" variant="bordered" classNames={inputClasses} />
               <Input label="Confirmar" type="password" value={formData.confirmPassword} onValueChange={v => handleInputChange("confirmPassword", v)} placeholder="••••••••" variant="bordered" classNames={inputClasses} />
@@ -294,13 +320,7 @@ export const Register = () => {
             )}
           </div>
 
-          <div className="flex items-center gap-4 my-6">
-            <Divider className="flex-1" />
-            <span className="text-[10px] uppercase tracking-widest" style={{ color: "#a1a1aa", fontWeight: 600 }}>ou</span>
-            <Divider className="flex-1" />
-          </div>
-
-          <p className="text-center text-[13px]" style={{ color: "#71717a" }}>
+          <p className="text-center text-[13px] mt-6" style={{ color: "#71717a" }}>
             Já tem conta?{" "}
             <Link to="/" className="hover:opacity-80 transition-opacity" style={{ color: "#006FEE", fontWeight: 600 }}>Fazer login</Link>
           </p>
