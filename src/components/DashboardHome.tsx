@@ -200,7 +200,18 @@ export const DashboardHome = () => {
                   initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
                   className="grid grid-cols-3 gap-3 mt-10 max-w-[560px]"
                 >
-                  <StatCard icon={Users} value={isProf ? "142" : String(enrolled.length)} label={isProf ? "Alunos" : "Cursos ativos"} color="#60a5fa" hint={isProf ? "+12 este mês" : "ativos"} delta={isProf ? "+9%" : "novo"} trend="up" spark={[110, 118, 125, 130, 134, 138, 142]} variant="dark" index={0} />
+                  <StatCard 
+                    icon={Users} 
+                    value={isProf ? String(perfil?.stats?.alunosAtivos ?? 0) : String(enrolled.length)} 
+                    label={isProf ? "Alunos" : "Cursos ativos"} 
+                    color="#60a5fa" 
+                    hint={isProf ? "em cursos e aulas" : "ativos"} 
+                    delta={isProf ? `${perfil?.stats?.cursosPublicados ?? 0} cursos` : "novo"} 
+                    trend="up" 
+                    spark={[1, 2, 4, 6, 8, 10, isProf ? (perfil?.stats?.alunosAtivos || 1) : (enrolled.length || 1)]} 
+                    variant="dark" 
+                    index={0} 
+                  />
                   
                   {/* Rating Card Dynamic: if student -> locked, if prof -> shows rating */}
                   <div className="bg-white/5 rounded-xl p-4 flex flex-col justify-between" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -212,8 +223,8 @@ export const DashboardHome = () => {
                      </div>
                      {isProf ? (
                         <>
-                           <p className="text-[24px] text-white font-bold">{perfil?.profile?.rating || perfil?.rating || "5.0"}</p>
-                           <p className="text-[11px] text-amber-400 mt-1">{perfil?.profile?.total_reviews || perfil?.total_reviews || 0} avaliações</p>
+                           <p className="text-[24px] text-white font-bold">{perfil?.profile?.rating ? Number(perfil.profile.rating).toFixed(1) : "5.0"}</p>
+                           <p className="text-[11px] text-amber-400 mt-1">{perfil?.profile?.total_reviews ?? 0} avaliações</p>
                         </>
                      ) : (
                         <>
@@ -223,7 +234,18 @@ export const DashboardHome = () => {
                      )}
                   </div>
 
-                  <StatCard icon={TrendingUp} value={isProf ? "R$4.250" : `${totalHoras}h`} label={isProf ? "Março" : "Tempo estudado"} color="#34d399" hint={isProf ? "vs. R$3.180 fev" : "esta semana"} delta={isProf ? "+33%" : "+2.3h"} trend="up" spark={[2, 3, 5, 8, 9, 11, totalHoras || 12]} variant="dark" index={2} />
+                  <StatCard 
+                    icon={TrendingUp} 
+                    value={`${totalHoras}h`} 
+                    label={isProf ? "Horas ministradas" : "Tempo estudado"} 
+                    color="#34d399" 
+                    hint="esta semana" 
+                    delta={totalHoras > 0 ? `${totalHoras}h` : "iniciar"} 
+                    trend="up" 
+                    spark={[1, 2, 3, 5, 7, 9, totalHoras || 2]} 
+                    variant="dark" 
+                    index={2} 
+                  />
                 </motion.div>
               </div>
 
